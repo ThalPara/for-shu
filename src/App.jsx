@@ -372,7 +372,7 @@ function Sudoku(){
 
 /* -------------------- MARVEL QUIZ -------------------- */
 function MarvelQuiz(){
-  // Large pool generation so each playthrough is fresh
+  // ===== Question source: built-in templated facts OR user-provided JSON =====
   const FACTS = useMemo(()=>[
     { key:'wolverine-metal', choices:['Vibranium','Adamantium','Uru','Carbonadium'], correct:'Adamantium', templates:[
       "Which metal is bonded to Wolverine's skeleton?",
@@ -427,11 +427,13 @@ function MarvelQuiz(){
       "Identify the team most linked to Wolverine." ]},
   ],[]);
 
+  // RNG + helpers
   const rng = useRef(Math.random());
   function rand(){ return (rng.current = (rng.current * 9301 + 49297) % 233280) / 233280; }
   function shuffle(arr){ const a=arr.slice(); for(let i=a.length-1;i>0;i--){ const j=Math.floor(rand()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
 
-  function buildPool(target=1000){
+  // Build a large internal pool (fallback when user hasn't provided JSON)
+  function buildPoolFromFacts(target=1000){
     const pool=[]; const seen=new Set();
     while(pool.length<target){
       const f = FACTS[Math.floor(rand()*FACTS.length)];
@@ -446,18 +448,84 @@ function MarvelQuiz(){
     return pool;
   }
 
+  // ===== Custom JSON support =====
+  // Acceptable shapes per item:
+  // { q, choices: string[], a:number } OR { question, choices, answerIndex } OR { question, correct, distractors[] }
+  function normalizeItems(items){
+    const out=[]; if(!Array.isArray(items)) return out;
+    for(const raw of items){
+      const q = raw.q || raw.question || raw.prompt;
+      let choices = Array.isArray(raw.choices) ? raw.choices.slice() : (Array.isArray(raw.options) ? raw.options.slice() : null);
+      let a = (typeof raw.a==='number' ? raw.a : (typeof raw.answerIndex==='number' ? raw.answerIndex : null));
+      const correctStr = raw.correct || raw.answer || raw.correctAnswer;
+      const distractors = Array.isArray(raw.distractors) ? raw.distractors.slice() : null;
+      if(!choices && correctStr){
+        // build from correct + distractors
+        const base = distractors && distractors.length ? distractors.slice() : [];
+        choices = base.includes(correctStr) ? base : [correctStr, ...base];
+      }
+      if(!q || !choices || choices.length < 2) continue;
+      if(a==null){
+        if(correctStr!=null){
+          const idx = choices.findIndex(c => String(c).trim().toLowerCase() === String(correctStr).trim().toLowerCase());
+          if(idx>=0) a = idx; else { choices = shuffle([correctStr, ...choices]); a = choices.indexOf(correctStr); }
+        } else {
+          // default first item as correct if nothing provided
+          a = 0;
+        }
+      }
+      // clamp
+      a = Math.max(0, Math.min(choices.length-1, a));
+      out.push({ q:String(q), choices:choices.map(String), a });
+    }
+    return out;
+  }
+
+  // Persist custom JSON in localStorage
+  const [customPool, setCustomPool] = useState(()=>{
+    try{ const t = localStorage.getItem('ohana-marvel-quiz-json'); if(!t) return null; const parsed = JSON.parse(t); const norm = normalizeItems(parsed); return norm.length? norm : null; }catch{ return null; }
+  });
+  const [usingCustom, setUsingCustom] = useState(()=>!!customPool);
+
+  function applyCustomJSONText(text){
+    try{
+      const parsed = JSON.parse(text);
+      const norm = normalizeItems(parsed);
+      if(!norm.length) { showToast('Invalid or empty questions JSON'); return; }
+      localStorage.setItem('ohana-marvel-quiz-json', JSON.stringify(parsed));
+      setCustomPool(norm); setUsingCustom(true);
+      showToast(`Loaded ${norm.length} questions`);
+      // Reset current run to use the new pool
+      setOrder(shuffle([...Array(norm.length).keys()]).slice(0,N_PER_RUN));
+      setIndex(0); setScore(0); setDone(false); setUsedSkip(false); setReveal(false);
+    }catch(err){ console.error(err); showToast('JSON parse error'); }
+  }
+
+  function clearCustom(){ localStorage.removeItem('ohana-marvel-quiz-json'); setCustomPool(null); setUsingCustom(false); showToast('Using built-in pool'); restart(true); }
+
+  // Build current POOL depending on custom JSON
   const POOL = useMemo(()=>{
     rng.current = (Date.now()%100000)/100000;
-    return buildPool(1200);
-  },[]);
+    if(usingCustom && customPool && customPool.length) return customPool;
+    return buildPoolFromFacts(1200);
+  },[usingCustom, customPool]);
 
+  // Gameplay state
   const N_PER_RUN = 10;
-  const [order, setOrder] = useState(()=>shuffle([...Array(POOL.length).keys()]).slice(0,N_PER_RUN));
+  const [order, setOrder] = useState(()=>shuffle([...Array(Math.max(1, POOL.length)).keys()]).slice(0,N_PER_RUN));
   const [index, setIndex] = useState(0);
   const [score, setScore] = useState(0);
   const [done, setDone] = useState(false);
   const [usedSkip, setUsedSkip] = useState(false);
   const [reveal, setReveal] = useState(false);
+  const [showPaste, setShowPaste] = useState(false);
+  const textAreaRef = useRef(null);
+
+  // Rebuild order when POOL changes (e.g., user loaded custom JSON)
+  useEffect(()=>{
+    setOrder(shuffle([...Array(Math.max(1, POOL.length)).keys()]).slice(0,N_PER_RUN));
+    setIndex(0); setScore(0); setDone(false); setUsedSkip(false); setReveal(false);
+  },[POOL]);
 
   function pick(i){
     if(done) return;
@@ -474,18 +542,48 @@ function MarvelQuiz(){
   }
 
   function skip(){ if(usedSkip||done) return; setUsedSkip(true); showToast('Skipped ➡️'); setIndex(i=>Math.min(i+1, order.length-1)); }
-  function restart(){
-    setOrder(shuffle([...Array(POOL.length).keys()]).slice(0,N_PER_RUN));
-    setIndex(0); setScore(0); setDone(false); setUsedSkip(false); setReveal(false); showToast('New Quiz!');
+  function restart(silent=false){
+    setOrder(shuffle([...Array(Math.max(1, POOL.length)).keys()]).slice(0,N_PER_RUN));
+    setIndex(0); setScore(0); setDone(false); setUsedSkip(false); setReveal(false); if(!silent) showToast('New Quiz!');
   }
 
-  const qObj = POOL[order[index]];
+  const qObj = POOL[order[index]] || { q:'No questions loaded', choices:['Load JSON above'], a:0 };
   const progressPct = Math.round(((index) / order.length) * 100);
 
   return (
     <main className="two-col">
       <section className="card" style={{display:'grid',gap:12}}>
         <h3 style={sideH3}>Marvel Quiz</h3>
+
+        {/* Source controls */}
+        <div className="card" style={{display:'grid',gap:10}}>
+          <div style={{fontWeight:800}}>Question Source</div>
+          <div style={{display:'flex',flexWrap:'wrap',gap:8,alignItems:'center'}}>
+            <label className="btn" style={{cursor:'pointer'}}>
+              Upload JSON
+              <input type="file" accept="application/json,.json" style={{display:'none'}} onChange={(e)=>{
+                const f=e.target.files?.[0]; if(!f) return; const fr=new FileReader(); fr.onload=()=>applyCustomJSONText(String(fr.result||'')); fr.readAsText(f);
+              }}/>
+            </label>
+            <button className="btn" onClick={()=>setShowPaste(v=>!v)}>{showPaste? 'Hide' : 'Paste JSON'}</button>
+            <button className="btn" onClick={clearCustom} disabled={!usingCustom}>Use Built‑in</button>
+            <div style={{opacity:.8}}>{usingCustom? `Using custom JSON (${customPool?.length||0} items)` : 'Using built‑in pool'}</div>
+          </div>
+          {showPaste && (
+            <div style={{display:'grid',gap:8}}>
+              <textarea ref={textAreaRef} placeholder='[ { "q": "Who is Iron Man?", "choices":["Tony Stark","Bruce Wayne"], "a":0 } ]' rows={6} style={{width:'100%',border:'1px solid #cfe9ff',borderRadius:10,padding:10}}/>
+              <div style={{display:'flex',gap:8}}>
+                <button className="btn btnPrimary" onClick={()=>applyCustomJSONText(textAreaRef.current?.value||'')}>Load</button>
+                <button className="btn" onClick={()=>{ if(textAreaRef.current) textAreaRef.current.value=''; }}>Clear</button>
+              </div>
+              <small style={{opacity:.7}}>
+                Supported shapes per item: {`{ q, choices[], a }`} • {`{ question, choices[], answerIndex }`} • {`{ question, correct, distractors[] }`}
+              </small>
+            </div>
+          )}
+        </div>
+
+        {/* Question card */}
         <div className="card" style={{padding:16}}>
           <div style={{fontSize:18,fontWeight:800,marginBottom:8,lineHeight:1.3}}>{qObj.q}</div>
           <div style={{display:'grid',gap:10}}>
@@ -512,7 +610,7 @@ function MarvelQuiz(){
             <div style={{opacity:.8,fontWeight:700}}>{index+1} / {order.length}</div>
           </div>
           <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
-            <button className="btn" onClick={restart}>Restart</button>
+            <button className="btn" onClick={()=>restart(false)}>Restart</button>
             <button className="btn btnPrimary" onClick={skip} disabled={usedSkip}>Skip {usedSkip?'✓':''}</button>
           </div>
         </div>
@@ -530,12 +628,13 @@ function MarvelQuiz(){
         <div className="card">
           <h3 style={sideH3}>Tips</h3>
           <ul style={{margin:0,paddingLeft:18,lineHeight:1.4}}>
-            <li>Pick the best answer. We reveal the correct one briefly.</li>
-            <li>Use <b>Skip</b> once per run.</li>
-            <li>Restart to get a fresh set of randomized questions.</li>
+            <li>Upload or paste your JSON to use your own questions.</li>
+            <li>Supported shapes: {`{ q, choices[], a }`} • {`{ question, choices[], answerIndex }`} • {`{ question, correct, distractors[] }`}.</li>
+            <li>Restart to reshuffle. Skip is available once per run.</li>
           </ul>
         </div>
       </aside>
     </main>
   );
 }
+
