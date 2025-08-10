@@ -185,24 +185,6 @@ function Tetris(){
 
   function restart(){ boardRef.current=emptyBoard(); bagRef.current=[]; pieceRef.current=createPiece(nextType()); nextPieceRef.current=createPiece(nextType()); setScore(0); setLevel(1); setLines(0); dropIntervalRef.current=800; lastDropRef.current=0; renderNext(); draw(); setPlaying(true); showToast('New Game – Good luck!'); }
 
-  // Self-tests for Tetris core
-  function tetrisSelfTests(){
-    const savedBoard=boardRef.current.map(r=>r.slice()); const savedPiece=JSON.parse(JSON.stringify(pieceRef.current));
-    try{
-      boardRef.current=emptyBoard();
-      console.group('%cTetris Self‑Tests','color:#7ef7d7;font-weight:700');
-      console.assert(boardRef.current.length===ROWS && boardRef.current.every(r=>r.length===COLS),'Board size');
-      let tp=createPiece('O'); tp.x=4; tp.y=-1; console.assert(!collides(tp,0,0),'Spawn non-collision');
-      let left=createPiece('I'); left.x=-1; left.y=0; console.assert(collides(left,0,0),'Wall collision');
-      let floor=createPiece('O'); floor.x=4; floor.y=ROWS-2; console.assert(collides(floor,0,1)===true,'Floor collision');
-      boardRef.current[ROWS-1]=Array(COLS).fill('I'); let cleared=clearLines(); console.assert(cleared===1,'Single line clear');
-      boardRef.current[ROWS-1]=Array(COLS).fill('J'); boardRef.current[ROWS-2]=Array(COLS).fill('L'); cleared=clearLines(); console.assert(cleared===2,'Double line clear');
-      let ok=true; try{ const ctx=ctxRef.current!; const path=new Path2D(); ctx.fill(path);}catch(e){ ok=false;} console.assert(ok,'Path2D fill');
-      console.log('%cAll good!','color:#6c9cf1;font-weight:700'); showToast('Tetris tests passed');
-    }catch(err){ console.error(err); showToast('Tetris tests failed – see console', 1800); }
-    finally{ boardRef.current=savedBoard; pieceRef.current=savedPiece; draw(); }
-  }
-
   return (
     <main className="two-col">
       <section className="card" style={{alignItems:'center',display:'flex',flexDirection:'column',gap:12}}>
@@ -213,7 +195,6 @@ function Tetris(){
           <button className="btn" onClick={()=>setPlaying(p=>{ showToast(p?'Paused':'Resumed'); return !p; })}>Pause (P)</button>
           <button className="btn" onClick={restart}>Restart (R)</button>
           <button className="btn" onClick={()=>setSoundOn(s=>!s)}>Sound: {soundOn?'On':'Off'}</button>
-          <button className="btn" onClick={tetrisSelfTests}>Self‑Test</button>
         </div>
 
         {/* Mobile touch pad */}
@@ -301,18 +282,6 @@ function Sudoku(){
   }
   function revealOne(){ const sol = solutions[puzzleIndex]; setGrid(prev=>{ const g=prev.map(r=>r.slice()); const {r,c}=selected; if(fixed[r][c]) return g; g[r][c]=Number(sol[r*9+c]); return g; }); showToast('Hint revealed'); }
 
-  // Self-tests for Sudoku
-  function sudokuSelfTests(){
-    try{
-      console.group('%cSudoku Self‑Tests','color:#7ef7d7;font-weight:700');
-      const g0=strToGrid(puzzles[0]); console.assert(isValid(g0),'Starter puzzle should be valid');
-      const wrong=strToGrid(puzzles[0]); wrong[0][0]=9; console.assert(!isValid(wrong),'Intentional duplicate should be invalid');
-      const sol=strToGrid(solutions[0]); console.assert(isValid(sol),'Solution should be valid');
-      console.assert(gridToStr(sol)===solutions[0],'Solution string matches');
-      console.log('%cAll good!','color:#6c9cf1;font-weight:700'); showToast('Sudoku tests passed');
-    }catch(err){ console.error(err); showToast('Sudoku tests failed – see console', 1800); }
-  }
-
   // Keyboard
   useEffect(()=>{
     function onKey(e:KeyboardEvent){
@@ -354,7 +323,6 @@ function Sudoku(){
           <button className="btn btnPrimary" onClick={check}>Check</button>
           <button className="btn" onClick={revealOne}>Hint</button>
           <button className="btn" onClick={newPuzzle}>New</button>
-          <button className="btn" onClick={sudokuSelfTests}>Self‑Test</button>
         </div>
       </section>
       <aside style={{display:'grid',gap:12}}>
