@@ -340,7 +340,7 @@ function Sudoku(){
               borderRight: (c % 3 === 2 || c === 8) ? thick : undefined,
               borderBottom: (r % 3 === 2 || r === 8) ? thick : undefined,
               color: '#0f3554'
-            } as React.CSSProperties;
+            };
             return (
               <div key={`${r}-${c}`} style={cellStyle} onClick={()=>setSelected({r,c})}>
                 <span style={{opacity:isFixed?1:.95,color:isFixed?'#ffb300':'#0f3554'}}>{v||''}</span>
