@@ -120,8 +120,8 @@ function Tetris(){
     T:[[0,1,0],[1,1,1],[0,0,0]],
     Z:[[1,1,0],[0,1,1],[0,0,0]],
   }),[]);
-  const TYPES = useMemo(()=>Object.keys(SHAPES) as Array<keyof typeof SHAPES>,[SHAPES]);
 
+  const TYPES = useMemo(() => Object.keys(SHAPES), [SHAPES]);
   const ctxRef = useRef<CanvasRenderingContext2D|null>(null);
   const boardRef = useRef<string[][]>(emptyBoard());
   const bagRef = useRef<string[]>([]);
