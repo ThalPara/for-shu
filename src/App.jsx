@@ -1,26 +1,25 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 
 /**
- * Ohana Arcade – Single‑file React App
+ * Ohana Arcade – Single‑file React App (Sky‑Blue Theme)
  * Games: Tetris (Lilo & Stitch quotes) + Sudoku + Marvel Quiz
  * - Responsive layout (2/3 width on desktop, single column on mobile)
  * - Mobile Tetris touch controls
  * - Path2D fill fix for rounded cells
- * - Self‑tests for all games
  */
 
 export default function OhanaArcade() {
   const [game, setGame] = useState('tetris'); // 'tetris' | 'sudoku' | 'marvel'
   return (
-    <div className="min-h-screen text-[#e8eeff]" style={{
-            background: 'radial-gradient(1200px 800px at 10% 10%, #cfe2f3, transparent), radial-gradient(900px 600px at 90% 0%, #8d5ce5, transparent), linear-gradient(160deg, #9fc5e8, #3d85c6)'
+    <div className="min-h-screen text-[#0f3554]" style={{
+      background: 'linear-gradient(180deg, #e0f7ff 0%, #f9fdff 40%, #ffffff 100%)'
     }}>
       <BaseStyles />
       <Stars />
 
       <div className="flex justify-center pt-6">
         <div className="container" style={{ width: '66.6667vw', maxWidth: 1280, minWidth: 640 }}>
-          <header className="flex flex-wrap items-center justify-center gap-3 md:gap-4 border-b border-white/10 pb-3 mb-4">
+          <header className="flex flex-wrap items-center justify-center gap-3 md:gap-4 border-b border-[#cfe9ff] pb-3 mb-4">
             <h1 className="text-xl md:text-2xl font-bold m-0">Ohana Arcade</h1>
             <nav className="seg" role="tablist" aria-label="Choose game">
               <button
@@ -73,22 +72,22 @@ function BaseStyles(){
   return (
     <style>{`
       .stars{position:fixed;inset:0;pointer-events:none;z-index:0}
-      .star{position:absolute;width:2px;height:2px;background:#fff;opacity:.75;border-radius:50%;filter:drop-shadow(0 0 6px #9cf);animation:twinkle 3s infinite ease-in-out}
+      .star{position:absolute;width:2px;height:2px;background:#79c5ff;opacity:.6;border-radius:50%;filter:drop-shadow(0 0 6px #96d6ff);animation:twinkle 3s infinite ease-in-out}
       @keyframes twinkle{0%,100%{opacity:.3}50%{opacity:1}}
-      .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:rgba(0,0,0,.75);border:1px solid rgba(255,255,255,.2);padding:12px 16px;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.35);opacity:0;pointer-events:none;transition:opacity .25s ease,transform .25s ease;z-index:5}
+      .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#ffffff;border:1px solid #cfe9ff;color:#0f3554;padding:12px 16px;border-radius:12px;box-shadow:0 10px 30px rgba(30,136,229,.12);opacity:0;pointer-events:none;transition:opacity .25s ease,transform .25s ease;z-index:5}
       .toast.show{opacity:1;transform:translateX(-50%) translateY(-6px)}
-      .btn{cursor:pointer;background:#101737;color:#e8eeff;border:1px solid rgba(255,255,255,.12);border-radius:999px;padding:12px 16px;font-weight:700;letter-spacing:.3px;touch-action:manipulation}
-      .btnPrimary{background:linear-gradient(90deg,#6c9cf1,#8a5cff);color:#081225;border:none}
-      .card{background:rgba(0,0,0,.25);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:12px;box-shadow:0 10px 30px rgba(0,0,0,.35)}
+      .btn{cursor:pointer;background:#e6f3ff;color:#0f3554;border:1px solid #b9e0ff;border-radius:999px;padding:12px 16px;font-weight:700;letter-spacing:.3px;touch-action:manipulation}
+      .btnPrimary{background:linear-gradient(90deg,#4fc3f7,#2196f3);color:#ffffff;border:none}
+      .card{background:#ffffff;border:1px solid #dbeafe;border-radius:14px;padding:12px;box-shadow:0 8px 20px rgba(30,136,229,.08)}
       .two-col{display:grid;grid-template-columns:1fr 280px;gap:18px;padding:18px}
       .mobile-pad{display:grid;grid-template-columns:repeat(3, minmax(56px, 1fr));grid-auto-rows:56px;gap:10px;justify-content:center;width:100%}
       .mobile-pad .btn{border-radius:16px}
       /* --- Fancy segmented tabs --- */
-      .seg{display:inline-flex;align-items:center;gap:6px;padding:6px;background:rgba(8,14,34,.35);border:1px solid rgba(255,255,255,.12);border-radius:999px;box-shadow:0 6px 20px rgba(0,0,0,.25)}
-      .seg-btn{position:relative;display:inline-flex;align-items:center;gap:8px;padding:10px 14px;border:none;border-radius:999px;font-weight:800;letter-spacing:.2px;cursor:pointer;color:#e8eeff;background:linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02));transition:transform .08s ease, box-shadow .2s ease, background .2s ease}
+      .seg{display:inline-flex;align-items:center;gap:6px;padding:6px;background:#eaf5ff;border:1px solid #cfe9ff;border-radius:999px;box-shadow:0 6px 20px rgba(30,136,229,.08)}
+      .seg-btn{position:relative;display:inline-flex;align-items:center;gap:8px;padding:10px 14px;border:none;border-radius:999px;font-weight:800;letter-spacing:.2px;cursor:pointer;color:#0f3554;background:#ffffff;transition:transform .08s ease, box-shadow .2s ease, background .2s ease}
       .seg-btn .seg-ico{font-size:1.1em;line-height:1}
-      .seg-btn.is-active{color:#081225;background:linear-gradient(90deg,#6c9cf1,#8a5cff);box-shadow:0 6px 18px rgba(138,92,255,.35)}
-      .seg-btn:focus-visible{outline:none;box-shadow:0 0 0 2px #0af5, 0 0 0 4px rgba(138,92,255,.55)}
+      .seg-btn.is-active{color:#ffffff;background:linear-gradient(90deg,#4fc3f7,#2196f3);box-shadow:0 6px 18px rgba(33,150,243,.25)}
+      .seg-btn:focus-visible{outline:none;box-shadow:0 0 0 2px #90caf9, 0 0 0 4px rgba(33,150,243,.45)}
       .seg-btn:active{transform:translateY(1px)}
       @media (max-width: 760px){
         .container{ width:95vw !important; min-width:0 !important; }
@@ -139,9 +138,8 @@ function Tetris(){
   const [best, setBest] = useState(Number(typeof window!=='undefined' ? (localStorage.getItem('ohana-tetris-best')||0) : 0));
   const [quote, setQuote] = useState('Fill a line to hear from Lilo & Stitch 💫');
 
-  // config
   const COLS=10, ROWS=20, cellPx=32;
-  const COLORS = useMemo(()=>({ I:'#6c9cf1', J:'#8a5cff', L:'#ff7db8', O:'#ffe27a', S:'#7ef7d7', T:'#b18cff', Z:'#5be1ff' }),[]);
+  const COLORS = useMemo(()=>({ I:'#4fc3f7', J:'#64b5f6', L:'#90caf9', O:'#ffd54f', S:'#81d4fa', T:'#42a5f5', Z:'#29b6f6' }),[]);
   const SHAPES = useMemo(()=>({
     I:[[0,0,0,0],[1,1,1,1],[0,0,0,0],[0,0,0,0]],
     J:[[1,0,0],[1,1,1],[0,0,0]],
@@ -167,11 +165,15 @@ function Tetris(){
   function createPiece(type){ const shape=SHAPES[type].map(r=>r.slice()); return {type, shape, x: Math.floor((COLS-shape[0].length)/2), y: -1}; }
   function rotate(m){ const N=m.length, M=m[0].length; const r=Array.from({length:M},()=>Array(N).fill(0)); for(let y=0;y<N;y++) for(let x=0;x<M;x++) r[x][N-1-y]=m[y][x]; return r; }
   function collides(p, dx=0, dy=0, test=null){ const sh=test||p.shape; const b=boardRef.current; for(let y=0;y<sh.length;y++){ for(let x=0;x<sh[y].length;x++){ if(!sh[y][x]) continue; const nx=p.x+x+dx, ny=p.y+y+dy; if(nx<0||nx>=COLS||ny>=ROWS) return true; if(ny>=0 && b[ny][nx]) return true; } } return false; }
-  function merge(p){ const b=boardRef.current; for(let y=0;y<p.shape.length;y++){ for(let x=0;x<p.shape[y].length;x++){ if(p.shape[y][x]){ const ny=p.y+y, nx=p.x+x; if(ny>=0) b[ny][nx]=p.type; } } } }
+  function merge(p){ const b=boardRef.current; for(let y=0;y<p.shape.length;y++){
+    for(let x=0;x<p.shape[y].length;x++){
+      if(p.shape[y][x]){ const ny=p.y+y, nx=p.x+x; if(ny>=0) b[ny][nx]=p.type; }
+    }
+  } }
   function clearLines(){ let c=0; const b=boardRef.current; for(let y=ROWS-1;y>=0;y--){ if(b[y].every(Boolean)){ b.splice(y,1); b.unshift(Array(COLS).fill(null)); c++; y++; } } return c; }
   function roundRectPath(x,y,w,h,r){ const p=new Path2D(); r=Math.min(r,w/2,h/2); p.moveTo(x+r,y); p.arcTo(x+w,y,x+w,y+h,r); p.arcTo(x+w,y+h,x,y+h,r); p.arcTo(x,y+h,x,y,r); p.arcTo(x,y,x+w,y,r); p.closePath(); return p; }
-  function drawCell(x,y,type,ghost=false){ const ctx=ctxRef.current; if(!ctx) return; const px=x*cellPx, py=y*cellPx; const color=COLORS[type]||'#9cf'; ctx.fillStyle=color; ctx.globalAlpha=ghost?0.25:1; const r=6; const base=roundRectPath(px+1,py+1,cellPx-2,cellPx-2,r); ctx.fill(base); ctx.globalAlpha=ghost?0.18:0.4; ctx.fillStyle='#ffffff'; const gloss=roundRectPath(px+4,py+4,cellPx-8,(cellPx-8)/3,r); ctx.fill(gloss); ctx.globalAlpha=1; }
-  function draw(){ const ctx=ctxRef.current, canvas=canvasRef.current; if(!ctx||!canvas) return; ctx.clearRect(0,0,canvas.width,canvas.height); const b=boardRef.current; for(let y=0;y<ROWS;y++){ for(let x=0;x<COLS;x++){ if(b[y][x]) drawCell(x,y,b[y][x]); else { ctx.globalAlpha=.05; ctx.fillStyle='#fff'; ctx.fillRect(x*cellPx+1,y*cellPx+1,cellPx-2,cellPx-2); ctx.globalAlpha=1; } } } let gy=pieceRef.current.y; while(!collides(pieceRef.current,0,(gy-pieceRef.current.y)+1)) gy++; for(let y=0;y<pieceRef.current.shape.length;y++) for(let x=0;x<pieceRef.current.shape[y].length;x++) if(pieceRef.current.shape[y][x] && gy+y>=0) drawCell(pieceRef.current.x+x, gy+y, pieceRef.current.type, true); for(let y=0;y<pieceRef.current.shape.length;y++) for(let x=0;x<pieceRef.current.shape[y].length;x++) if(pieceRef.current.shape[y][x] && pieceRef.current.y+y>=0) drawCell(pieceRef.current.x+x, pieceRef.current.y+y, pieceRef.current.type); }
+  function drawCell(x,y,type,ghost=false){ const ctx=ctxRef.current; if(!ctx) return; const px=x*cellPx, py=y*cellPx; const color=COLORS[type]||'#4fc3f7'; ctx.fillStyle=color; ctx.globalAlpha=ghost?0.25:1; const r=6; const base=roundRectPath(px+1,py+1,cellPx-2,cellPx-2,r); ctx.fill(base); ctx.globalAlpha=ghost?0.18:0.4; ctx.fillStyle='#ffffff'; const gloss=roundRectPath(px+4,py+4,cellPx-8,(cellPx-8)/3,r); ctx.fill(gloss); ctx.globalAlpha=1; }
+  function draw(){ const ctx=ctxRef.current, canvas=canvasRef.current; if(!ctx||!canvas) return; ctx.clearRect(0,0,canvas.width,canvas.height); const b=boardRef.current; for(let y=0;y<ROWS;y++){ for(let x=0;x<COLS;x++){ if(b[y][x]) drawCell(x,y,b[y][x]); else { ctx.globalAlpha=.12; ctx.fillStyle='#1e88e5'; ctx.fillRect(x*cellPx+1,y*cellPx+1,cellPx-2,cellPx-2); ctx.globalAlpha=1; } } } let gy=pieceRef.current.y; while(!collides(pieceRef.current,0,(gy-pieceRef.current.y)+1)) gy++; for(let y=0;y<pieceRef.current.shape.length;y++) for(let x=0;x<pieceRef.current.shape[y].length;x++) if(pieceRef.current.shape[y][x] && gy+y>=0) drawCell(pieceRef.current.x+x, gy+y, pieceRef.current.type, true); for(let y=0;y<pieceRef.current.shape.length;y++) for(let x=0;x<pieceRef.current.shape[y].length;x++) if(pieceRef.current.shape[y][x] && pieceRef.current.y+y>=0) drawCell(pieceRef.current.x+x, pieceRef.current.y+y, pieceRef.current.type); }
   function beep(freq=600, dur=.06){ if(!soundOn) return; if(!audioCtxRef.current) audioCtxRef.current=new (window.AudioContext||window.webkitAudioContext)(); const a=audioCtxRef.current; const o=a.createOscillator(); const g=a.createGain(); o.type='sine'; o.frequency.value=freq; o.connect(g); g.connect(a.destination); g.gain.setValueAtTime(.0001,a.currentTime); g.gain.exponentialRampToValueAtTime(.2,a.currentTime+.01); o.start(); o.stop(a.currentTime+dur); o.onended=()=>g.disconnect(); }
   function renderNext(){ const n=nextRef.current; if(!n||!nextPieceRef.current) return; n.innerHTML=''; for(let i=0;i<25;i++){ const d=document.createElement('div'); d.style.width='20px'; d.style.height='20px'; d.style.borderRadius='4px'; d.style.background='transparent'; n.appendChild(d);} const sh=nextPieceRef.current.shape; const offX=Math.floor((5-sh[0].length)/2), offY=Math.floor((5-sh.length)/2); [...n.children].forEach((cell,idx)=>{ const gx=idx%5, gy=Math.floor(idx/5); const sx=gx-offX, sy=gy-offY; const on=sh[sy]&&sh[sy][sx]; if(on){ cell.style.background=COLORS[nextPieceRef.current.type]; cell.style.opacity=.95; } }); }
   function showQuote(){ const q=[
@@ -219,34 +221,16 @@ function Tetris(){
 
   function restart(){ boardRef.current=emptyBoard(); bagRef.current=[]; pieceRef.current=createPiece(nextType()); nextPieceRef.current=createPiece(nextType()); setScore(0); setLevel(1); setLines(0); dropIntervalRef.current=800; lastDropRef.current=0; renderNext(); draw(); setPlaying(true); showToast('New Game – Good luck!'); }
 
-  function tetrisSelfTests(){
-    const savedBoard=boardRef.current.map(r=>r.slice()); const savedPiece=JSON.parse(JSON.stringify(pieceRef.current));
-    try{
-      console.group('%cTetris Self‑Tests','color:#7ef7d7;font-weight:700');
-      boardRef.current=emptyBoard();
-      console.assert(boardRef.current.length===ROWS && boardRef.current.every(r=>r.length===COLS),'Board size');
-      let tp=createPiece('O'); tp.x=4; tp.y=-1; console.assert(!collides(tp,0,0),'Spawn non-collision');
-      let left=createPiece('I'); left.x=-1; left.y=0; console.assert(collides(left,0,0),'Wall collision');
-      let floor=createPiece('O'); floor.x=4; floor.y=ROWS-2; console.assert(collides(floor,0,1)===true,'Floor collision');
-      boardRef.current[ROWS-1]=Array(COLS).fill('I'); let cleared=clearLines(); console.assert(cleared===1,'Single line clear');
-      boardRef.current[ROWS-1]=Array(COLS).fill('J'); boardRef.current[ROWS-2]=Array(COLS).fill('L'); cleared=clearLines(); console.assert(cleared===2,'Double line clear');
-      let ok=true; try{ const ctx=ctxRef.current; if(ctx){ const path=new Path2D(); ctx.fill(path);} }catch(e){ ok=false;} console.assert(ok,'Path2D fill');
-      console.log('%cAll good!','color:#6c9cf1;font-weight:700'); showToast('Tetris tests passed');
-    }catch(err){ console.error(err); showToast('Tetris tests failed – see console', 1800); }
-    finally{ boardRef.current=savedBoard; pieceRef.current=savedPiece; draw(); console.groupEnd(); }
-  }
-
   return (
     <main className="two-col">
       <section className="card" style={{alignItems:'center',display:'flex',flexDirection:'column',gap:12}}>
         <h3 style={sideH3}>Tetris</h3>
-        <canvas ref={canvasRef} width={320} height={640} aria-label="Tetris board" style={{background:'rgba(8,14,34,.8)',borderRadius:10,boxShadow:'inset 0 0 0 1px rgba(255,255,255,.06), 0 10px 30px rgba(0,0,0,.35)'}}/>
+        <canvas ref={canvasRef} width={320} height={640} aria-label="Tetris board" style={{background:'#ffffff',borderRadius:10,boxShadow:'inset 0 0 0 1px #dbeafe, 0 10px 30px rgba(30,136,229,.10)'}}/>
         <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
           <button className="btn btnPrimary" onClick={()=>{ if(!playing){ setPlaying(true); lastDropRef.current=0; showToast('Game Start!'); if(audioCtxRef.current && audioCtxRef.current.resume) audioCtxRef.current.resume(); } }}>Start</button>
           <button className="btn" onClick={()=>setPlaying(p=>{ showToast(p?'Paused':'Resumed'); return !p; })}>Pause (P)</button>
           <button className="btn" onClick={restart}>Restart (R)</button>
           <button className="btn" onClick={()=>setSoundOn(s=>!s)}>Sound: {soundOn?'On':'Off'}</button>
-          <button className="btn" onClick={tetrisSelfTests}>Self‑Test</button>
         </div>
 
         <div className="mobile-pad">
@@ -259,7 +243,7 @@ function Tetris(){
 
         <div className="card" style={{width:'100%'}}>
           <h3 style={sideH3}>Next</h3>
-          <div ref={nextRef} style={{display:'grid',gridTemplateColumns:'repeat(5,20px)',gridAutoRows:'20px',gap:3,justifyContent:'start',background:'rgba(8,14,34,.8)',padding:10,borderRadius:10,boxShadow:'inset 0 0 0 1px rgba(255,255,255,.06)'}}/>
+          <div ref={nextRef} style={{display:'grid',gridTemplateColumns:'repeat(5,20px)',gridAutoRows:'20px',gap:3,justifyContent:'start',background:'#ffffff',padding:10,borderRadius:10,boxShadow:'inset 0 0 0 1px #dbeafe'}}/>
         </div>
       </section>
       <aside style={{display:'grid',gap:12}}>
@@ -274,14 +258,14 @@ function Tetris(){
         </div>
         <div className="card">
           <h3 style={sideH3}>Ohana Quote</h3>
-          <div style={{minHeight:72,background:'rgba(255,255,255,.06)',borderRadius:12,padding:10,display:'flex',alignItems:'center',justifyContent:'center',textAlign:'center',fontWeight:700,lineHeight:1.3,fontSize:'clamp(12px, 2.4vw, 16px)'}}>{quote}</div>
+          <div style={{minHeight:72,background:'#e9f4ff',borderRadius:12,padding:10,display:'flex',alignItems:'center',justifyContent:'center',textAlign:'center',fontWeight:700,lineHeight:1.3,fontSize:'clamp(12px, 2.4vw, 16px)'}}>{quote}</div>
         </div>
       </aside>
     </main>
   );
 }
 
-function Stat({label, value}){ return <div style={{background:'rgba(255,255,255,.06)',borderRadius:12,padding:10,textAlign:'center'}}><div>{label}</div><div style={{fontSize:22,fontWeight:800}}>{value}</div></div>; }
+function Stat({label, value}){ return <div style={{background:'#e9f4ff',borderRadius:12,padding:10,textAlign:'center'}}><div>{label}</div><div style={{fontSize:22,fontWeight:800}}>{value}</div></div>; }
 const sideH3 = {margin:'0 0 8px 0',fontSize:14,opacity:.9,letterSpacing:'.3px',textTransform:'uppercase'};
 
 /* -------------------- SUDOKU -------------------- */
@@ -326,18 +310,6 @@ function Sudoku(){
   }
   function revealOne(){ const sol = solutions[puzzleIndex]; setGrid(prev=>{ const g=prev.map(r=>r.slice()); const {r,c}=selected; if(fixed[r][c]) return g; g[r][c]=Number(sol[r*9+c]); return g; }); showToast('Hint revealed'); }
 
-  function sudokuSelfTests(){
-    try{
-      console.group('%cSudoku Self‑Tests','color:#7ef7d7;font-weight:700');
-      const g0=strToGrid(puzzles[0]); console.assert(isValid(g0),'Starter puzzle valid');
-      const wrong=strToGrid(puzzles[0]); wrong[0][0]=9; console.assert(!isValid(wrong),'Duplicate invalid');
-      const sol=strToGrid(solutions[0]); console.assert(isValid(sol),'Solution valid');
-      console.assert(gridToStr(sol)===solutions[0],'Solution string matches');
-      console.log('%cAll good!','color:#6c9cf1;font-weight:700'); showToast('Sudoku tests passed');
-    }catch(err){ console.error(err); showToast('Sudoku tests failed – see console', 1800); }
-    finally{ console.groupEnd(); }
-  }
-
   useEffect(()=>{
     function onKey(e){
       if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Backspace','Delete','Digit0','Numpad0'].includes(e.code) || (/Digit[1-9]|Numpad[1-9]/.test(e.code))){ e.preventDefault?.(); }
@@ -353,7 +325,7 @@ function Sudoku(){
     <main className="two-col">
       <section className="card" style={{alignItems:'stretch',display:'flex',flexDirection:'column',gap:12}}>
         <h3 style={sideH3}>Sudoku</h3>
-        <div style={{display:'grid',gridTemplateColumns:'repeat(9, minmax(0, 1fr))',gap:4,background:'rgba(8,14,34,.8)',padding:8,borderRadius:12,boxShadow:'inset 0 0 0 1px rgba(255,255,255,.06)'}}>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(9, minmax(0, 1fr))',gap:4,background:'#ffffff',padding:8,borderRadius:12,boxShadow:'inset 0 0 0 1px #dbeafe'}}>
           {grid.map((row,r)=>row.map((v,c)=>{
             const isSel = selected.r===r && selected.c===c;
             const isFixed = fixed[r][c];
@@ -361,12 +333,13 @@ function Sudoku(){
               userSelect:'none', cursor:isFixed?'not-allowed':'pointer',
               display:'flex',alignItems:'center',justifyContent:'center',
               height:'auto', aspectRatio:'1 / 1', borderRadius:8, fontWeight:800,
-              background: isSel? 'rgba(255,255,255,.18)' : 'rgba(255,255,255,.06)',
-              border: '1px solid rgba(255,255,255,.08)'
+              background: isSel? '#e3f2ff' : '#f3f8ff',
+              border: '1px solid #e1efff',
+              color: '#0f3554'
             };
             return (
               <div key={`${r}-${c}`} style={cellStyle} onClick={()=>setSelected({r,c})}>
-                <span style={{opacity:isFixed?1:.95,color:isFixed?'#ffe27a':'#e8eeff'}}>{v||''}</span>
+                <span style={{opacity:isFixed?1:.95,color:isFixed?'#ffb300':'#0f3554'}}>{v||''}</span>
               </div>
             );
           }))}
@@ -377,7 +350,6 @@ function Sudoku(){
           <button className="btn btnPrimary" onClick={check}>Check</button>
           <button className="btn" onClick={revealOne}>Hint</button>
           <button className="btn" onClick={newPuzzle}>New</button>
-          <button className="btn" onClick={sudokuSelfTests}>Self‑Test</button>
         </div>
       </section>
       <aside style={{display:'grid',gap:12}}>
@@ -400,19 +372,87 @@ function Sudoku(){
 
 /* -------------------- MARVEL QUIZ -------------------- */
 function MarvelQuiz(){
-  const QUESTIONS = useMemo(()=>[
-    { q: 'Which metal is bonded to Wolverine\'s skeleton?', choices: ['Vibranium','Adamantium','Uru','Carbonadium'], a: 1 },
-    { q: 'What is the name of Thor\'s hammer (primary in many stories)?', choices: ['Gungnir','Stormbreaker','Hofund','Mjolnir'], a: 3 },
-    { q: 'T\'Challa is the king of which nation?', choices: ['Genosha','Wakanda','Latveria','Sokovia'], a: 1 },
-    { q: 'Which Infinity Stone controls time?', choices: ['Blue','Green','Red','Purple'], a: 1 },
-    { q: 'Natasha Romanoff is also known as…', choices: ['Black Widow','Scarlet Witch','Wasp','Gamora'], a: 0 },
-    { q: 'Peter Parker works as a photographer for which newspaper (classic canon)?', choices: ['Daily Planet','Daily Bugle','The Post','Clarion'], a: 1 },
-    { q: 'Which hero famously says “I can do this all day”?', choices: ['Iron Man','Captain America','Hawkeye','Star-Lord'], a: 1 },
-    { q: 'What kind of scientist is Bruce Banner primarily?', choices: ['Biochemist','Nuclear physicist','Astrophysicist','Engineer'], a: 1 },
-    { q: 'Which city is Daredevil strongly associated with?', choices: ['Gotham','Metropolis','Hell\'s Kitchen','Star City'], a: 2 },
-    { q: 'Which team is Logan (Wolverine) most associated with?', choices: ['Avengers','X‑Men','Fantastic Four','Inhumans'], a: 1 },
+  // Large pool generation so each playthrough is fresh
+  const FACTS = useMemo(()=>[
+    { key:'wolverine-metal', choices:['Vibranium','Adamantium','Uru','Carbonadium'], correct:'Adamantium', templates:[
+      "Which metal is bonded to Wolverine's skeleton?",
+      "Wolverine's skeleton is coated with which metal?",
+      "Logan's bones are reinforced by what metal?",
+      "What metal is fused to Wolverine's skeleton in most storylines?"
+    ]},
+    { key:'thor-hammer', choices:['Gungnir','Stormbreaker','Hofund','Mjolnir'], correct:'Mjolnir', templates:[
+      "What is the name of Thor's iconic hammer?",
+      "Thor primarily wields which hammer?",
+      "Which weapon is known as the enchanted hammer of Thor?",
+      "Identify Thor's classic hammer." ]},
+    { key:'tchalla-king', choices:['Genosha','Wakanda','Latveria','Sokovia'], correct:'Wakanda', templates:[
+      "T'Challa is the king of which nation?",
+      "Black Panther rules what African nation?",
+      "Which country is T'Challa monarch of?",
+      "Name the high‑tech nation ruled by T'Challa." ]},
+    { key:'time-stone', choices:['Blue','Green','Red','Purple'], correct:'Green', templates:[
+      "Which Infinity Stone controls time?",
+      "The Time Stone is what color in the MCU?",
+      "Which Infinity Stone governs time manipulation?",
+      "Name the Infinity Stone associated with time." ]},
+    { key:'natasha-alias', choices:['Black Widow','Scarlet Witch','Wasp','Gamora'], correct:'Black Widow', templates:[
+      "Natasha Romanoff is also known as…",
+      "What's the superhero alias of Natasha Romanoff?",
+      "Which codename belongs to Natasha Romanoff?",
+      "Identify Natasha Romanoff's alias." ]},
+    { key:'parker-paper', choices:['Daily Planet','Daily Bugle','The Post','Clarion'], correct:'Daily Bugle', templates:[
+      "Peter Parker works as a photographer for which newspaper (classic canon)?",
+      "Which paper famously employs Peter Parker as a photographer?",
+      "Name the New York tabloid Peter Parker shoots for.",
+      "Peter Parker sells photos to what newspaper?" ]},
+    { key:'cap-quote', choices:['Iron Man','Captain America','Hawkeye','Star-Lord'], correct:'Captain America', templates:[
+      "Which hero famously says “I can do this all day”?",
+      "Who delivers the line 'I can do this all day'?",
+      "Who is known for the catchphrase 'I can do this all day'?",
+      "Identify the Avenger who says 'I can do this all day'." ]},
+    { key:'banner-field', choices:['Biochemist','Nuclear physicist','Astrophysicist','Engineer'], correct:'Nuclear physicist', templates:[
+      "What kind of scientist is Bruce Banner primarily?",
+      "Bruce Banner's field of expertise is primarily what?",
+      "Which discipline best describes Bruce Banner's profession?",
+      "Banner is first and foremost a what?" ]},
+    { key:'daredevil-city', choices:['Gotham','Metropolis','Hell\'s Kitchen','Star City'], correct:"Hell's Kitchen", templates:[
+      "Which city is Daredevil strongly associated with?",
+      "Matt Murdock protects which NYC neighborhood?",
+      "Daredevil is the guardian devil of what area?",
+      "Name Daredevil's neighborhood." ]},
+    { key:'wolverine-team', choices:['Avengers','X‑Men','Fantastic Four','Inhumans'], correct:'X‑Men', templates:[
+      "Which team is Logan (Wolverine) most associated with?",
+      "Wolverine is best known as a member of which team?",
+      "Logan commonly fights alongside what team?",
+      "Identify the team most linked to Wolverine." ]},
   ],[]);
 
+  const rng = useRef(Math.random());
+  function rand(){ return (rng.current = (rng.current * 9301 + 49297) % 233280) / 233280; }
+  function shuffle(arr){ const a=arr.slice(); for(let i=a.length-1;i>0;i--){ const j=Math.floor(rand()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+
+  function buildPool(target=1000){
+    const pool=[]; const seen=new Set();
+    while(pool.length<target){
+      const f = FACTS[Math.floor(rand()*FACTS.length)];
+      const tmpl = f.templates[Math.floor(rand()*f.templates.length)];
+      const choices = shuffle(f.choices);
+      const aIdx = choices.indexOf(f.correct);
+      const qStr = tmpl;
+      const key = qStr+"|"+choices.join(',');
+      if(seen.has(key)) continue; seen.add(key);
+      pool.push({ q:qStr, choices, a:aIdx });
+    }
+    return pool;
+  }
+
+  const POOL = useMemo(()=>{
+    rng.current = (Date.now()%100000)/100000;
+    return buildPool(1200);
+  },[]);
+
+  const N_PER_RUN = 10;
+  const [order, setOrder] = useState(()=>shuffle([...Array(POOL.length).keys()]).slice(0,N_PER_RUN));
   const [index, setIndex] = useState(0);
   const [score, setScore] = useState(0);
   const [done, setDone] = useState(false);
@@ -422,45 +462,39 @@ function MarvelQuiz(){
   function pick(i){
     if(done) return;
     setReveal(true);
-    const correct = i === QUESTIONS[index].a;
+    const qObj = POOL[order[index]];
+    const correct = i === qObj.a;
     if(correct) { setScore(s=>s+1); showToast('Correct! ✨'); }
     else showToast('Not quite.');
     setTimeout(()=>{
       setReveal(false);
-      if(index+1>=QUESTIONS.length){ setDone(true); showToast('Quiz complete!'); }
+      if(index+1>=order.length){ setDone(true); showToast('Quiz complete!'); }
       else setIndex(index+1);
     }, 650);
   }
 
-  function skip(){ if(usedSkip||done) return; setUsedSkip(true); showToast('Skipped ➡️'); setIndex(i=>Math.min(i+1, QUESTIONS.length-1)); }
-  function restart(){ setIndex(0); setScore(0); setDone(false); setUsedSkip(false); setReveal(false); showToast('New Quiz!'); }
-
-  function quizTests(){
-    try{
-      console.group('%cMarvel Quiz Self‑Tests','color:#7ef7d7;font-weight:700');
-      console.assert(Array.isArray(QUESTIONS) && QUESTIONS.length>=5,'Has questions');
-      const first=QUESTIONS[0]; console.assert(first.a>=0 && first.a<first.choices.length,'Answer index in range');
-      console.log('%cAll good!','color:#6c9cf1;font-weight:700'); showToast('Quiz tests passed');
-    }catch(e){ console.error(e); showToast('Quiz tests failed – see console'); }
-    finally{ console.groupEnd(); }
+  function skip(){ if(usedSkip||done) return; setUsedSkip(true); showToast('Skipped ➡️'); setIndex(i=>Math.min(i+1, order.length-1)); }
+  function restart(){
+    setOrder(shuffle([...Array(POOL.length).keys()]).slice(0,N_PER_RUN));
+    setIndex(0); setScore(0); setDone(false); setUsedSkip(false); setReveal(false); showToast('New Quiz!');
   }
 
-  const q = QUESTIONS[index];
-  const progressPct = Math.round(((index) / QUESTIONS.length) * 100);
+  const qObj = POOL[order[index]];
+  const progressPct = Math.round(((index) / order.length) * 100);
 
   return (
     <main className="two-col">
       <section className="card" style={{display:'grid',gap:12}}>
         <h3 style={sideH3}>Marvel Quiz</h3>
         <div className="card" style={{padding:16}}>
-          <div style={{fontSize:18,fontWeight:800,marginBottom:8,lineHeight:1.3}}>{q.q}</div>
+          <div style={{fontSize:18,fontWeight:800,marginBottom:8,lineHeight:1.3}}>{qObj.q}</div>
           <div style={{display:'grid',gap:10}}>
-            {q.choices.map((c,i)=>{
-              const isCorrect = i===q.a;
+            {qObj.choices.map((c,i)=>{
+              const isCorrect = i===qObj.a;
               const show = reveal;
-              const bg = show ? (isCorrect? 'linear-gradient(90deg,#6c9cf1,#8a5cff)' : 'rgba(255,255,255,.06)') : 'rgba(255,255,255,.06)';
-              const color = show && isCorrect ? '#081225' : '#e8eeff';
-              const border = show ? (isCorrect? 'transparent' : 'rgba(255,255,255,.08)') : 'rgba(255,255,255,.08)';
+              const bg = show ? (isCorrect? 'linear-gradient(90deg,#4fc3f7,#2196f3)' : '#e9f4ff') : '#e9f4ff';
+              const color = show && isCorrect ? '#ffffff' : '#0f3554';
+              const border = show ? (isCorrect? 'transparent' : '#cfe9ff') : '#cfe9ff';
               return (
                 <button key={i} className="btn" style={{textAlign:'left',justifyContent:'flex-start',background:bg,color, borderColor:border}} onClick={()=>pick(i)} disabled={done}>
                   {c}
@@ -472,13 +506,12 @@ function MarvelQuiz(){
 
         <div className="card" style={{display:'grid',gap:10}}>
           <div style={{display:'flex',alignItems:'center',gap:10}}>
-            <div style={{flex:1,height:8,background:'rgba(255,255,255,.08)',borderRadius:999,overflow:'hidden'}}>
-              <div style={{width:progressPct+'%',height:'100%',background:'linear-gradient(90deg,#6c9cf1,#8a5cff)'}}/>
+            <div style={{flex:1,height:8,background:'#e6f3ff',borderRadius:999,overflow:'hidden'}}>
+              <div style={{width:progressPct+'%',height:'100%',background:'linear-gradient(90deg,#4fc3f7,#2196f3)'}}/>
             </div>
-            <div style={{opacity:.8,fontWeight:700}}>{index+1} / {QUESTIONS.length}</div>
+            <div style={{opacity:.8,fontWeight:700}}>{index+1} / {order.length}</div>
           </div>
           <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
-            <button className="btn" onClick={quizTests}>Self‑Test</button>
             <button className="btn" onClick={restart}>Restart</button>
             <button className="btn btnPrimary" onClick={skip} disabled={usedSkip}>Skip {usedSkip?'✓':''}</button>
           </div>
@@ -487,10 +520,10 @@ function MarvelQuiz(){
       <aside style={{display:'grid',gap:12}}>
         <div className="card">
           <h3 style={sideH3}>Score</h3>
-          <div style={{fontSize:28,fontWeight:900,textAlign:'center'}}>{score} / {QUESTIONS.length}</div>
+          <div style={{fontSize:28,fontWeight:900,textAlign:'center'}}>{score} / {order.length}</div>
           {done && (
             <div style={{marginTop:8,textAlign:'center',fontWeight:700}}>
-              {score===QUESTIONS.length? 'Flawless victory! ✨' : score>QUESTIONS.length/2? 'Nice work! 🦸' : 'Good try — play again!'}
+              {score===order.length? 'Flawless victory! ✨' : score>order.length/2? 'Nice work! 🦸' : 'Good try — play again!'}
             </div>
           )}
         </div>
@@ -499,7 +532,7 @@ function MarvelQuiz(){
           <ul style={{margin:0,paddingLeft:18,lineHeight:1.4}}>
             <li>Pick the best answer. We reveal the correct one briefly.</li>
             <li>Use <b>Skip</b> once per run.</li>
-            <li>Restart anytime to reshuffle your memory.</li>
+            <li>Restart to get a fresh set of randomized questions.</li>
           </ul>
         </div>
       </aside>
