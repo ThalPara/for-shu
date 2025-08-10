@@ -196,7 +196,7 @@ function Tetris(){
   function newPiece(){ pieceRef.current=nextPieceRef.current; nextPieceRef.current=createPiece(nextType()); renderNext(); }
   function softDrop(){ if(!collides(pieceRef.current,0,1)){ pieceRef.current.y++; } else lockPiece(); draw(); }
   function hardDrop(){ let moved=0; while(!collides(pieceRef.current,0,1)){ pieceRef.current.y++; moved++; } setScore(s=>s+2*moved); lockPiece(); draw(); }
-  function maybeLevelUp(curLines:number, curLevel:number){ if(curLines>=curLevel*10){ const nl=curLevel+1; dropIntervalRef.current=Math.max(120,dropIntervalRef.current-90); setLevel(nl); showToast('Level Up! '+nl); } }
+  function maybeLevelUp(curLines, curLevel){ if(curLines>=curLevel*10){ const nl=curLevel+1; dropIntervalRef.current=Math.max(120,dropIntervalRef.current-90); setLevel(nl); showToast('Level Up! '+nl); } }
   function lockPiece(){ merge(pieceRef.current); beep(420,.05); const c=clearLines(); if(c>0){ const gains=[0,100,300,500,800][c]||c*300; setScore(s=>s+gains*level); setLines(ln=>{ const nl=ln+c; maybeLevelUp(nl, level); return nl;}); setBest(b=>{ const nb=Math.max(b, score); localStorage.setItem('ohana-tetris-best', String(nb)); return Math.max(b, score);}); showQuote(); beep(660,.07); setTimeout(()=>beep(880,.07),70);} newPiece(); if(collides(pieceRef.current,0,0)){ setPlaying(false); showToast('Game Over – Press Restart', 2000); beep(160,.2);} }
 
   useEffect(()=>{
@@ -216,7 +216,7 @@ function Tetris(){
     resize(); window.addEventListener('resize', resize);
     // init pieces
     boardRef.current=emptyBoard(); bagRef.current=[]; pieceRef.current=createPiece(nextType()); nextPieceRef.current=createPiece(nextType()); renderNext(); draw();
-    let raf: number; function loop(ts:number){ if(!playing){ raf=requestAnimationFrame(loop); return; } if(!lastDropRef.current) lastDropRef.current=ts; const dt=ts-lastDropRef.current; if(dt>=dropIntervalRef.current){ softDrop(); lastDropRef.current=ts; } draw(); raf=requestAnimationFrame(loop);} raf=requestAnimationFrame(loop);
+    let raf: number; function loop(ts){ if(!playing){ raf=requestAnimationFrame(loop); return; } if(!lastDropRef.current) lastDropRef.current=ts; const dt=ts-lastDropRef.current; if(dt>=dropIntervalRef.current){ softDrop(); lastDropRef.current=ts; } draw(); raf=requestAnimationFrame(loop);} raf=requestAnimationFrame(loop);
     return ()=>{ cancelAnimationFrame(raf); window.removeEventListener('resize', resize); };
   },[playing]);
 
@@ -296,10 +296,10 @@ function Sudoku(){
 
   useEffect(()=>{ const g=strToGrid(puzzles[puzzleIndex]); setGrid(g); setFixed(g.map(r=>r.map(v=>v!==0))); },[puzzleIndex, puzzles]);
 
-  function strToGrid(s:string){ return Array.from({length:9},(_,r)=>Array.from({length:9},(_,c)=>Number(s[r*9+c]))); }
-  function gridToStr(g:number[][]){ return g.flat().join(''); }
+  function strToGrid(s){ return Array.from({length:9},(_,r)=>Array.from({length:9},(_,c)=>Number(s[r*9+c]))); }
+  function gridToStr(g){ return g.flat().join(''); }
 
-  function isValid(g:number[][]){
+  function isValid(g){
     // rows
     for(let r=0;r<9;r++){ const seen=new Set<number>(); for(let c=0;c<9;c++){ const v=g[r][c]; if(v===0) continue; if(seen.has(v)) return false; seen.add(v);} }
     // cols
@@ -308,9 +308,9 @@ function Sudoku(){
     for(let br=0;br<3;br++) for(let bc=0;bc<3;bc++){ const seen=new Set<number>(); for(let r=0;r<3;r++) for(let c=0;c<3;c++){ const v=g[br*3+r][bc*3+c]; if(v===0) continue; if(seen.has(v)) return false; seen.add(v);} }
     return true;
   }
-  function isSolved(g:number[][]){ return gridToStr(g) === solutions[puzzleIndex]; }
+  function isSolved(g){ return gridToStr(g) === solutions[puzzleIndex]; }
 
-  function setNumber(n:number){ setGrid(prev=>{ const g=prev.map(row=>row.slice()); const {r,c}=selected; if(fixed[r][c]) return g; g[r][c]=n; return g; }); }
+  function setNumber(n){ setGrid(prev=>{ const g=prev.map(row=>row.slice()); const {r,c}=selected; if(fixed[r][c]) return g; g[r][c]=n; return g; }); }
   function clearCell(){ setNumber(0); }
   function newPuzzle(){ setPuzzleIndex((i)=>(i+1)%puzzles.length); showToast('New Sudoku loaded'); }
 
