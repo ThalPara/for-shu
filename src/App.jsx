@@ -1,551 +1,474 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Lilo & Stitch Tetris – Ohana Mode</title>
-  <style>
-    :root {
-      --bg1: #0b1020;
-      --bg2: #1a1f3b;
-      --accent: #6c9cf1;
-      --accent-2: #8a5cff;
-      --pink: #ff7db8;
-      --green: #7ef7d7;
-      --yellow: #ffe27a;
-      --cell: 32px; /* base size; canvas scales with DPR */
-      --shadow: 0 10px 30px rgba(0,0,0,.35);
-    }
-    html, body { height: 100%; }
-    body {
-      margin: 0;
-      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial;
-      background: radial-gradient(1200px 800px at 10% 10%, #1b2550, transparent),
-                  radial-gradient(900px 600px at 90% 0%, #311a5a, transparent),
-                  linear-gradient(160deg, var(--bg1), var(--bg2));
-      color: #e8eeff;
-      overflow-x: hidden;
-    }
-    /* twinkling stars */
-    .stars { position: fixed; inset: 0; pointer-events: none; z-index: 0; }
-    .star { position: absolute; width: 2px; height: 2px; background: #fff; opacity: .75; border-radius: 50%; filter: drop-shadow(0 0 6px #9cf); animation: twinkle 3s infinite ease-in-out; }
-    @keyframes twinkle { 0%,100%{opacity:.3} 50%{opacity:1} }
+import React, { useEffect, useMemo, useRef, useState } from "react";
 
-    /* LAYOUT: make main app ~2/4 of the screen width */
-    .wrap { display: flex; justify-content: center; padding: 24px; }
-    .app {
-      width: 50vw;              /* 2/4 of the screen */
-      max-width: 960px;         /* don't get too wide on ultrawide */
-      min-width: 640px;         /* keep enough room for board + sidebar */
-      backdrop-filter: blur(6px);
-      background: rgba(255,255,255,.04);
-      border: 1px solid rgba(255,255,255,.08);
-      border-radius: 20px;
-      box-shadow: var(--shadow);
-      overflow: clip;
-      position: relative; z-index: 1;
-    }
-    @media (max-width: 760px) {
-      .app { width: 95vw; min-width: 0; }
-    }
+// Default export so the canvas can render it
+export default function OhanaTetrisApp() {
+  // --- Refs & state ---
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const toastRef = useRef<HTMLDivElement | null>(null);
+  const nextRef = useRef<HTMLDivElement | null>(null);
+  const [soundOn, setSoundOn] = useState(true);
+  const [playing, setPlaying] = useState(false);
+  const [score, setScore] = useState(0);
+  const [level, setLevel] = useState(1);
+  const [lines, setLines] = useState(0);
+  const bestKey = "ohana-tetris-best";
+  const [best, setBest] = useState<number>(Number(localStorage.getItem(bestKey) || 0));
 
-    header { display: flex; align-items: center; justify-content: space-between; padding: 16px 18px; border-bottom: 1px solid rgba(255,255,255,.08); background: linear-gradient(180deg, rgba(255,255,255,.06), transparent); }
-    .title { display:flex; align-items:center; gap:12px; letter-spacing:.3px; }
-    .badge { font-size: 12px; padding: 4px 10px; border-radius: 999px; background: linear-gradient(90deg, var(--accent), var(--accent-2)); color:#081225; font-weight:700; }
+  // Config
+  const COLS = 10, ROWS = 20, cellPx = 32;
+  const COLORS = useMemo(() => ({
+    I: "#6c9cf1", J: "#8a5cff", L: "#ff7db8", O: "#ffe27a", S: "#7ef7d7", T: "#b18cff", Z: "#5be1ff",
+  }), []);
+  const SHAPES = useMemo(() => ({
+    I: [[0,0,0,0],[1,1,1,1],[0,0,0,0],[0,0,0,0]],
+    J: [[1,0,0],[1,1,1],[0,0,0]],
+    L: [[0,0,1],[1,1,1],[0,0,0]],
+    O: [[1,1],[1,1]],
+    S: [[0,1,1],[1,1,0],[0,0,0]],
+    T: [[0,1,0],[1,1,1],[0,0,0]],
+    Z: [[1,1,0],[0,1,1],[0,0,0]],
+  }), []);
+  const TYPES = useMemo(() => Object.keys(SHAPES) as Array<keyof typeof SHAPES>, [SHAPES]);
 
-    main { display: grid; grid-template-columns: 1fr 280px; gap: 18px; padding: 18px; }
-    @media (max-width: 820px) { main { grid-template-columns: 1fr; } }
+  // Game mutable state in refs so renders don't reset them
+  const ctxRef = useRef<CanvasRenderingContext2D | null>(null);
+  const boardRef = useRef<string[][]>(emptyBoard());
+  const bagRef = useRef<string[]>([]);
+  const pieceRef = useRef(createPiece(nextType()));
+  const nextPieceRef = useRef(createPiece(nextType()));
+  const lastDropRef = useRef<number>(0);
+  const dropIntervalRef = useRef<number>(800);
+  const audioCtxRef = useRef<AudioContext | null>(null);
 
-    .board-wrap { background: rgba(0,0,0,.25); border: 1px solid rgba(255,255,255,.08); border-radius: 16px; padding: 12px; display:flex; flex-direction:column; align-items:center; gap: 12px; }
-    canvas { background: rgba(8,14,34,.8); border-radius: 10px; box-shadow: inset 0 0 0 1px rgba(255,255,255,.06), var(--shadow); }
+  function emptyBoard() {
+    return Array.from({ length: ROWS }, () => Array(COLS).fill(null));
+  }
 
-    .side { display: grid; gap: 12px; }
-    .card { background: rgba(0,0,0,.25); border: 1px solid rgba(255,255,255,.08); border-radius: 14px; padding: 12px; box-shadow: var(--shadow); }
-    .card h3 { margin: 0 0 8px 0; font-size: 14px; opacity:.9; letter-spacing:.3px; text-transform: uppercase; }
-    .stats { display:grid; grid-template-columns: repeat(2, 1fr); gap:10px; }
-    .stat { background: rgba(255,255,255,.06); border-radius: 12px; padding: 10px; text-align:center; }
-    .stat .v { font-size: 22px; font-weight: 800; }
+  function nextType(): keyof typeof SHAPES {
+    if (bagRef.current.length === 0) bagRef.current = [...TYPES].sort(() => Math.random() - 0.5);
+    return bagRef.current.pop() as keyof typeof SHAPES;
+  }
 
-    .controls { display:flex; flex-wrap: wrap; gap: 8px; }
-    button { cursor: pointer; background: #101737; color:#e8eeff; border: 1px solid rgba(255,255,255,.12); border-radius: 999px; padding: 10px 14px; font-weight: 700; letter-spacing:.3px; transition: transform .08s ease, background .2s ease; }
-    button:hover { transform: translateY(-1px); background: #17204b; }
-    .primary { background: linear-gradient(90deg, var(--accent), var(--accent-2)); color:#081225; border: none; }
+  function createPiece(type: keyof typeof SHAPES) {
+    const shape = SHAPES[type].map((r) => r.slice());
+    return { type, shape, x: Math.floor((COLS - shape[0].length) / 2), y: -1 };
+  }
 
-    .next { display:grid; grid-template-columns: repeat(5, 20px); grid-auto-rows: 20px; gap: 3px; justify-content: start; background: rgba(8,14,34,.8); padding: 10px; border-radius: 10px; box-shadow: inset 0 0 0 1px rgba(255,255,255,.06); }
-    .next div { width: 20px; height: 20px; border-radius: 4px; }
+  function rotate(matrix: number[][]) {
+    const N = matrix.length, M = matrix[0].length;
+    const res = Array.from({ length: M }, () => Array(N).fill(0));
+    for (let y = 0; y < N; y++) for (let x = 0; x < M; x++) res[x][N - 1 - y] = matrix[y][x];
+    return res;
+  }
 
-    .quote { min-height: 72px; background: rgba(255,255,255,.06); border-radius: 12px; padding: 10px; display:flex; align-items:center; justify-content:center; text-align:center; font-weight: 700; line-height:1.3; }
-
-    /* on-screen mobile pad */
-    .pad { display:grid; grid-template-columns: repeat(3, 64px); grid-auto-rows: 64px; gap:10px; justify-content:center; margin-top: 8px; }
-    .pad button { border-radius: 16px; }
-
-    /* toast */
-    .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: rgba(0,0,0,.75); border: 1px solid rgba(255,255,255,.2); padding: 12px 16px; border-radius: 12px; box-shadow: var(--shadow); opacity:0; pointer-events:none; transition: opacity .25s ease, transform .25s ease; z-index: 5; }
-    .toast.show { opacity:1; transform: translateX(-50%) translateY(-6px); }
-
-    footer { text-align:center; padding: 8px 16px 16px; opacity:.8; }
-    a { color: var(--green); text-decoration: none; }
-  </style>
-</head>
-<body>
-  <div class="stars" id="stars"></div>
-  <div class="wrap">
-    <div class="app">
-      <header>
-        <div class="title">
-          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M12 2l2.5 3.5L19 7l-2.5 3.5L15 14l-3 1-3-1-1.5-3.5L5 7l4.5-1.5L12 2z" fill="url(#g)"/><defs><linearGradient id="g" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse"><stop stop-color="#6c9cf1"/><stop offset="1" stop-color="#8a5cff"/></linearGradient></defs></svg>
-          <div>
-            <div style="font-size:18px;font-weight:900;">Ohana Tetris</div>
-            <div style="font-size:12px;opacity:.8">Fill lines to unlock a Lilo & Stitch quote</div>
-          </div>
-        </div>
-        <div class="badge">Space-Borne Edition</div>
-      </header>
-
-      <main>
-        <section class="board-wrap">
-          <canvas id="board" width="320" height="640" aria-label="Tetris board"></canvas>
-          <div class="controls">
-            <button id="btn-start" class="primary">Start</button>
-            <button id="btn-pause">Pause (P)</button>
-            <button id="btn-restart">Restart (R)</button>
-            <button id="btn-mute">Sound: On</button>
-            <button id="btn-test" title="Run basic self-tests">Self‑Test</button>
-          </div>
-
-          <div class="pad" aria-label="Touch controls">
-            <button id="left">◀</button>
-            <button id="rotate">⟳</button>
-            <button id="right">▶</button>
-            <button id="soft">▼</button>
-            <button id="drop" class="primary" style="grid-column: span 3;">HARD DROP (Space)</button>
-          </div>
-        </section>
-
-        <aside class="side">
-          <div class="card">
-            <h3>Stats</h3>
-            <div class="stats">
-              <div class="stat"><div>Score</div><div class="v" id="score">0</div></div>
-              <div class="stat"><div>Level</div><div class="v" id="level">1</div></div>
-              <div class="stat"><div>Lines</div><div class="v" id="lines">0</div></div>
-              <div class="stat"><div>Best</div><div class="v" id="best">0</div></div>
-            </div>
-          </div>
-          <div class="card">
-            <h3>Next</h3>
-            <div class="next" id="next"></div>
-          </div>
-          <div class="card">
-            <h3>Ohana Quote</h3>
-            <div class="quote" id="quote">Fill a line to hear from Lilo & Stitch 💫</div>
-          </div>
-        </aside>
-      </main>
-
-      <footer>
-        Controls: ← → to move, ↑ rotate, ↓ soft drop, Space hard drop, P pause. Theme inspired by Lilo & Stitch. “Ohana means family.”
-      </footer>
-    </div>
-  </div>
-
-  <div class="toast" id="toast" role="status" aria-live="polite"></div>
-
-  <script>
-    // --- Star field background ---
-    (function makeStars(){
-      const cont = document.getElementById('stars');
-      const n = 120;
-      for(let i=0;i<n;i++){
-        const d=document.createElement('div');
-        d.className='star';
-        d.style.left = Math.random()*100 + '%';
-        d.style.top = Math.random()*100 + '%';
-        d.style.animationDelay = (Math.random()*3)+'s';
-        d.style.opacity = (0.2 + Math.random()*0.8).toFixed(2);
-        cont.appendChild(d);
+  function collides(p: any, offX = 0, offY = 0, testShape: number[][] | null = null) {
+    const sh = testShape || p.shape;
+    const board = boardRef.current;
+    for (let y = 0; y < sh.length; y++) {
+      for (let x = 0; x < sh[y].length; x++) {
+        if (!sh[y][x]) continue;
+        const nx = p.x + x + offX;
+        const ny = p.y + y + offY;
+        if (nx < 0 || nx >= COLS || ny >= ROWS) return true;
+        if (ny >= 0 && board[ny][nx]) return true;
       }
-    })();
-
-    // --- Audio (simple bleep) ---
-    const audioCtx = (typeof window !== 'undefined') ? new (window.AudioContext || window.webkitAudioContext)() : null;
-    let soundEnabled = true;
-    function beep(freq=600, dur=0.06){
-      if(!soundEnabled || !audioCtx) return;
-      const o = audioCtx.createOscillator();
-      const g = audioCtx.createGain();
-      o.type = 'sine'; o.frequency.value = freq; o.connect(g); g.connect(audioCtx.destination);
-      g.gain.setValueAtTime(0.0001, audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.2, audioCtx.currentTime + 0.01);
-      o.start(); o.stop(audioCtx.currentTime + dur);
-      o.onended = () => g.disconnect();
     }
+    return false;
+  }
 
-    // --- Tetris core ---
-    const COLS = 10, ROWS = 20;
-    const cellPx = 32; // logical size, we'll scale for DPR
-    const canvas = document.getElementById('board');
-    const ctx = canvas.getContext('2d');
+  function merge(p: any) {
+    const board = boardRef.current;
+    for (let y = 0; y < p.shape.length; y++) {
+      for (let x = 0; x < p.shape[y].length; x++) {
+        if (p.shape[y][x]) {
+          const ny = p.y + y, nx = p.x + x;
+          if (ny >= 0) board[ny][nx] = p.type as string;
+        }
+      }
+    }
+  }
 
-    // handle DPR crispness
+  function clearLines() {
+    const board = boardRef.current;
+    let cleared = 0;
+    for (let y = ROWS - 1; y >= 0; y--) {
+      if (board[y].every(Boolean)) {
+        board.splice(y, 1);
+        board.unshift(Array(COLS).fill(null));
+        cleared++; y++;
+      }
+    }
+    return cleared;
+  }
+
+  function roundRectPath(x: number, y: number, w: number, h: number, r: number) {
+    const p = new Path2D();
+    r = Math.min(r, w / 2, h / 2);
+    p.moveTo(x + r, y);
+    p.arcTo(x + w, y, x + w, y + h, r);
+    p.arcTo(x + w, y + h, x, y + h, r);
+    p.arcTo(x, y + h, x, y, r);
+    p.arcTo(x, y, x + w, y, r);
+    p.closePath();
+    return p;
+  }
+
+  function drawCell(x: number, y: number, type: string, ghost = false) {
+    const ctx = ctxRef.current!;
+    const px = x * cellPx, py = y * cellPx;
+    const color = (COLORS as any)[type] || "#9cf";
+    ctx.fillStyle = color;
+    ctx.globalAlpha = ghost ? 0.25 : 1;
+    const r = 6;
+    const base = roundRectPath(px + 1, py + 1, cellPx - 2, cellPx - 2, r);
+    ctx.fill(base);
+    ctx.globalAlpha = ghost ? 0.18 : 0.4;
+    ctx.fillStyle = "#ffffff";
+    const gloss = roundRectPath(px + 4, py + 4, cellPx - 8, (cellPx - 8) / 3, r);
+    ctx.fill(gloss);
+    ctx.globalAlpha = 1;
+  }
+
+  function draw() {
+    const ctx = ctxRef.current!;
+    const canvas = canvasRef.current!;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const board = boardRef.current;
+    // board
+    for (let y = 0; y < ROWS; y++) {
+      for (let x = 0; x < COLS; x++) {
+        if (board[y][x]) drawCell(x, y, board[y][x]!);
+        else { ctx.globalAlpha = 0.05; ctx.fillStyle = "#fff"; ctx.fillRect(x * cellPx + 1, y * cellPx + 1, cellPx - 2, cellPx - 2); ctx.globalAlpha = 1; }
+      }
+    }
+    // ghost
+    let gy = pieceRef.current.y;
+    while (!collides(pieceRef.current, 0, (gy - pieceRef.current.y) + 1)) gy++;
+    for (let y = 0; y < pieceRef.current.shape.length; y++) {
+      for (let x = 0; x < pieceRef.current.shape[y].length; x++) {
+        if (pieceRef.current.shape[y][x] && gy + y >= 0) drawCell(pieceRef.current.x + x, gy + y, pieceRef.current.type, true);
+      }
+    }
+    // piece
+    for (let y = 0; y < pieceRef.current.shape.length; y++) {
+      for (let x = 0; x < pieceRef.current.shape[y].length; x++) {
+        if (pieceRef.current.shape[y][x] && pieceRef.current.y + y >= 0) drawCell(pieceRef.current.x + x, pieceRef.current.y + y, pieceRef.current.type);
+      }
+    }
+  }
+
+  // Audio
+  function beep(freq = 600, dur = 0.06) {
+    if (!soundOn) return;
+    if (!audioCtxRef.current) audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const audioCtx = audioCtxRef.current;
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.type = "sine"; o.frequency.value = freq; o.connect(g); g.connect(audioCtx.destination);
+    g.gain.setValueAtTime(0.0001, audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.2, audioCtx.currentTime + 0.01);
+    o.start(); o.stop(audioCtx.currentTime + dur);
+    o.onended = () => g.disconnect();
+  }
+
+  function showToast(msg: string, ms = 1200) {
+    const el = toastRef.current!;
+    el.textContent = msg;
+    el.classList.add("show");
+    window.clearTimeout((el as any)._t);
+    (el as any)._t = window.setTimeout(() => el.classList.remove("show"), ms);
+  }
+
+  function renderNext() {
+    const n = nextRef.current!;
+    n.innerHTML = "";
+    for (let i = 0; i < 25; i++) { const d = document.createElement("div"); d.style.background = "transparent"; n.appendChild(d); }
+    const sh = nextPieceRef.current.shape; const offX = Math.floor((5 - sh[0].length) / 2); const offY = Math.floor((5 - sh.length) / 2);
+    [...n.children].forEach((cell: any, idx) => {
+      const gx = idx % 5, gy = Math.floor(idx / 5);
+      const sx = gx - offX, sy = gy - offY;
+      const on = sh[sy] && sh[sy][sx];
+      if (on) { cell.style.background = (COLORS as any)[nextPieceRef.current.type]; cell.style.opacity = 0.95; }
+    });
+  }
+
+  function maybeLevelUp(curLines: number, curLevel: number) {
+    if (curLines >= curLevel * 10) {
+      const nl = curLevel + 1;
+      dropIntervalRef.current = Math.max(120, dropIntervalRef.current - 90);
+      setLevel(nl);
+      showToast("Level Up! " + nl);
+    }
+  }
+
+  function newPiece() {
+    pieceRef.current = nextPieceRef.current;
+    nextPieceRef.current = createPiece(nextType());
+    renderNext();
+  }
+
+  function softDrop() {
+    if (!collides(pieceRef.current, 0, 1)) { pieceRef.current.y++; }
+    else lockPiece();
+    draw();
+  }
+
+  function hardDrop() {
+    let moved = 0;
+    while (!collides(pieceRef.current, 0, 1)) { pieceRef.current.y++; moved++; }
+    setScore((s) => s + 2 * moved);
+    lockPiece();
+    draw();
+  }
+
+  const quotes = useMemo(() => [
+    'Ohana means family. Family means nobody gets left behind or forgotten.',
+    'I like you. You be my friend?',
+    'Aloha! 🌺',
+    'This is my family. It’s little, and broken, but still good. Yeah, still good.',
+    'Blue punch buggy! No punch back!',
+    'You can be happy with me.',
+    'Stitch understands. Stitch is good. 🍪',
+    'Family is your superpower.',
+    'We’re a good team, you and me.',
+    'If you want to leave, you can. I’ll remember you though. I remember everyone that leaves.'
+  ], []);
+
+  function showQuoteToast() {
+    const q = quotes[Math.floor(Math.random() * quotes.length)];
+    const qEl = document.getElementById("quote");
+    if (qEl) qEl.textContent = q;
+    showToast("★ Ohana Quote Unlocked!");
+  }
+
+  function lockPiece() {
+    merge(pieceRef.current);
+    beep(420, 0.05);
+    const c = clearLines();
+    if (c > 0) {
+      const gains = [0, 100, 300, 500, 800][c] || c * 300;
+      setScore((s) => s + gains * level);
+      setLines((ln) => {
+        const nl = ln + c; maybeLevelUp(nl, level); return nl;
+      });
+      setBest((b) => { const nb = Math.max(b, score); localStorage.setItem(bestKey, String(nb)); return Math.max(b, score); });
+      showQuoteToast();
+      beep(660, 0.07); window.setTimeout(() => beep(880, 0.07), 70);
+    }
+    newPiece();
+    if (collides(pieceRef.current, 0, 0)) {
+      setPlaying(false); showToast("Game Over – Press Restart", 2000); beep(160, 0.2);
+    }
+  }
+
+  // Effects: canvas setup & game loop
+  useEffect(() => {
+    const canvas = canvasRef.current!;
+    const ctx = canvas.getContext("2d")!;
+    ctxRef.current = ctx;
+
     const DPR = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
-    function resizeCanvas(){
+    function resize() {
       canvas.width = COLS * cellPx * DPR;
       canvas.height = ROWS * cellPx * DPR;
-      canvas.style.width = (COLS * cellPx) + 'px';
-      canvas.style.height = (ROWS * cellPx) + 'px';
+      canvas.style.width = `${COLS * cellPx}px`;
+      canvas.style.height = `${ROWS * cellPx}px`;
       ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-      // IMPORTANT: don't draw here; board may not be ready yet.
     }
-    resizeCanvas();
-    window.addEventListener('resize', resizeCanvas);
+    resize();
+    window.addEventListener("resize", resize);
 
-    const COLORS = {
-      I: '#6c9cf1', J: '#8a5cff', L: '#ff7db8', O: '#ffe27a', S: '#7ef7d7', T: '#b18cff', Z: '#5be1ff'
-    };
-    const SHAPES = {
-      I: [ [0,0,0,0], [1,1,1,1], [0,0,0,0], [0,0,0,0] ],
-      J: [ [1,0,0], [1,1,1], [0,0,0] ],
-      L: [ [0,0,1], [1,1,1], [0,0,0] ],
-      O: [ [1,1], [1,1] ],
-      S: [ [0,1,1], [1,1,0], [0,0,0] ],
-      T: [ [0,1,0], [1,1,1], [0,0,0] ],
-      Z: [ [1,1,0], [0,1,1], [0,0,0] ],
-    };
-    const TYPES = Object.keys(SHAPES);
+    // draw initial
+    draw(); renderNext();
 
-    function emptyBoard(){ return Array.from({length: ROWS}, () => Array(COLS).fill(null)); }
-
-    // Initialize board BEFORE any draw attempts
-    let board = emptyBoard();
-    let bag = [];
-    function nextType(){
-      if(bag.length === 0){ bag = [...TYPES].sort(()=>Math.random()-0.5); }
-      return bag.pop();
-    }
-
-    function createPiece(type){
-      const shape = SHAPES[type].map(r => r.slice());
-      return { type, shape, x: Math.floor((COLS - shape[0].length)/2), y: -1 };
-    }
-
-    let piece = createPiece(nextType());
-    let nextPiece = createPiece(nextType());
-
-    function rotate(matrix){
-      const N = matrix.length;
-      const M = matrix[0].length;
-      const res = Array.from({length: M}, () => Array(N).fill(0));
-      for(let y=0;y<N;y++) for(let x=0;x<M;x++) res[x][N-1-y] = matrix[y][x];
-      return res;
-    }
-
-    function collides(p, offX=0, offY=0, testShape=null){
-      const sh = testShape || p.shape;
-      for(let y=0;y<sh.length;y++){
-        for(let x=0;x<sh[y].length;x++){
-          if(!sh[y][x]) continue;
-          const nx = p.x + x + offX;
-          const ny = p.y + y + offY;
-          if(nx < 0 || nx >= COLS || ny >= ROWS) return true;
-          if(ny >= 0 && board[ny][nx]) return true;
-        }
-      }
-      return false;
-    }
-
-    function merge(p){
-      for(let y=0;y<p.shape.length;y++){
-        for(let x=0;x<p.shape[y].length;x++){
-          if(p.shape[y][x]){
-            const ny = p.y + y; const nx = p.x + x;
-            if(ny >= 0) board[ny][nx] = p.type;
-          }
-        }
-      }
-    }
-
-    function clearLines(){
-      let cleared = 0;
-      for(let y=ROWS-1;y>=0;y--){
-        if(board[y].every(Boolean)){
-          board.splice(y,1);
-          board.unshift(Array(COLS).fill(null));
-          cleared++; y++;
-        }
-      }
-      return cleared;
-    }
-
-    function roundRect(ctx, x, y, w, h, r){
-      const p = new Path2D();
-      r = Math.min(r, w/2, h/2);
-      p.moveTo(x+r, y);
-      p.arcTo(x+w, y, x+w, y+h, r);
-      p.arcTo(x+w, y+h, x, y+h, r);
-      p.arcTo(x, y+h, x, y, r);
-      p.arcTo(x, y, x+w, y, r);
-      p.closePath();
-      return p;
-    }
-
-    function drawCell(x,y,type,ghost=false){
-      const px = x*cellPx, py = y*cellPx;
-      const color = COLORS[type] || '#9cf';
-      ctx.fillStyle = color;
-      ctx.globalAlpha = ghost ? 0.25 : 1;
-      const r = 6; // rounded
-      const basePath = roundRect(ctx, px+1, py+1, cellPx-2, cellPx-2, r);
-      ctx.fill(basePath);
-      // glossy highlight
-      ctx.globalAlpha = ghost ? 0.18 : 0.4;
-      ctx.fillStyle = '#ffffff';
-      const glossPath = roundRect(ctx, px+4, py+4, cellPx-8, (cellPx-8)/3, r);
-      ctx.fill(glossPath);
-      ctx.globalAlpha = 1;
-    }
-
-    function draw(){
-      ctx.clearRect(0,0,canvas.width,canvas.height);
-      // board
-      for(let y=0;y<ROWS;y++){
-        for(let x=0;x<COLS;x++){
-          if(board[y][x]) drawCell(x,y,board[y][x]);
-          else {
-            ctx.globalAlpha = .05; ctx.fillStyle = '#fff'; ctx.fillRect(x*cellPx+1, y*cellPx+1, cellPx-2, cellPx-2); ctx.globalAlpha = 1;
-          }
-        }
-      }
-      // ghost
-      let gy = piece.y; while(!collides(piece, 0, (gy-piece.y)+1)) gy++; // find landing row
-      for(let y=0;y<piece.shape.length;y++) for(let x=0;x<piece.shape[y].length;x++) if(piece.shape[y][x] && gy+y>=0) drawCell(piece.x+x, gy+y, piece.type, true);
-      // piece
-      for(let y=0;y<piece.shape.length;y++){
-        for(let x=0;x<piece.shape[y].length;x++){
-          if(piece.shape[y][x] && piece.y+y>=0) drawCell(piece.x+x, piece.y+y, piece.type);
-        }
-      }
-    }
-
-    // --- Game state ---
-    let dropInterval = 800; // ms
-    let lastDrop = 0;
-    let playing = false;
-    let score = 0, level = 1, lines = 0;
-    const bestKey = 'ohana-tetris-best';
-    document.getElementById('best').textContent = localStorage.getItem(bestKey) || 0;
-
-    function updateStats(){
-      document.getElementById('score').textContent = score;
-      document.getElementById('level').textContent = level;
-      document.getElementById('lines').textContent = lines;
-      const best = Math.max(Number(localStorage.getItem(bestKey)||0), score);
-      localStorage.setItem(bestKey, best);
-      document.getElementById('best').textContent = best;
-    }
-
-    function newPiece(){ piece = nextPiece; nextPiece = createPiece(nextType()); renderNext(); }
-
-    function renderNext(){
-      const n = document.getElementById('next');
-      n.innerHTML = '';
-      // clear grid
-      for(let i=0;i<25;i++){ const d=document.createElement('div'); d.style.background='transparent'; n.appendChild(d); }
-      // draw next piece centered-ish in 5x5
-      const sh = nextPiece.shape; const offX = Math.floor((5 - sh[0].length)/2); const offY = Math.floor((5 - sh.length)/2);
-      [...n.children].forEach((cell, idx)=>{
-        const gx = idx % 5, gy = Math.floor(idx/5);
-        const sx = gx - offX, sy = gy - offY;
-        const on = sh[sy] && sh[sy][sx];
-        if(on){ cell.style.background = COLORS[nextPiece.type]; cell.style.opacity = .95; }
-      });
-    }
-
-    function softDrop(){ if(!collides(piece,0,1)){ piece.y++; } else lockPiece(); draw(); }
-
-    function hardDrop(){
-      let moved = 0;
-      while(!collides(piece,0,1)){ piece.y++; moved++; }
-      score += 2*moved; // reward
-      lockPiece();
+    // game loop
+    let raf: number;
+    function loop(ts: number) {
+      if (!playing) { raf = requestAnimationFrame(loop); return; }
+      if (!lastDropRef.current) lastDropRef.current = ts;
+      const dt = ts - lastDropRef.current;
+      if (dt >= dropIntervalRef.current) { softDrop(); lastDropRef.current = ts; }
       draw();
+      raf = requestAnimationFrame(loop);
     }
+    raf = requestAnimationFrame(loop);
 
-    function lockPiece(){
-      merge(piece); beep(420, .05);
-      const c = clearLines();
-      if(c>0){
-        const gains = [0,100,300,500,800][c] || c*300; // Tetris-ish
-        score += gains * level; lines += c; maybeLevelUp(); updateStats();
-        showQuoteToast();
-        beep(660, .07); setTimeout(()=>beep(880, .07), 70);
+    return () => { cancelAnimationFrame(raf); window.removeEventListener("resize", resize); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playing]);
+
+  // Keyboard controls
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if ((e as any).repeat) return;
+      if (["ArrowLeft","ArrowRight","ArrowDown","ArrowUp","Space","KeyP","KeyR","KeyT"].includes(e.code)) e.preventDefault();
+      switch (e.code) {
+        case "ArrowLeft": if (!collides(pieceRef.current, -1, 0)) { pieceRef.current.x -= 1; draw(); beep(520, 0.03); } break;
+        case "ArrowRight": if (!collides(pieceRef.current, 1, 0)) { pieceRef.current.x += 1; draw(); beep(520, 0.03); } break;
+        case "ArrowDown": softDrop(); break;
+        case "ArrowUp": {
+          const r = rotate(pieceRef.current.shape);
+          if (!collides(pieceRef.current, 0, 0, r)) { pieceRef.current.shape = r; draw(); beep(700, 0.03); break; }
+          if (!collides(pieceRef.current, -1, 0, r)) { pieceRef.current.x -= 1; pieceRef.current.shape = r; draw(); beep(700, 0.03); break; }
+          if (!collides(pieceRef.current, 1, 0, r)) { pieceRef.current.x += 1; pieceRef.current.shape = r; draw(); beep(700, 0.03); break; }
+          break;
+        }
+        case "Space": hardDrop(); break;
+        case "KeyP": setPlaying((p) => { showToast(p ? "Paused" : "Resumed"); return !p; }); break;
+        case "KeyR": restart(); break;
+        case "KeyT": runSelfTests(); break;
       }
-      newPiece();
-      if(collides(piece,0,0)){
-        playing = false; showToast('Game Over – Press Restart', 2000); beep(160, .2);
-      }
     }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [soundOn]);
 
-    function maybeLevelUp(){
-      const nextLevelAt = level*10; // every 10 lines
-      if(lines >= nextLevelAt){ level++; dropInterval = Math.max(120, dropInterval - 90); showToast('Level Up! '+level); }
+  function restart() {
+    boardRef.current = emptyBoard();
+    bagRef.current = [];
+    pieceRef.current = createPiece(nextType());
+    nextPieceRef.current = createPiece(nextType());
+    setScore(0); setLevel(1); setLines(0);
+    dropIntervalRef.current = 800; lastDropRef.current = 0;
+    renderNext(); draw(); setPlaying(true);
+    showToast("New Game – Good luck!");
+  }
+
+  // Self-tests (console only)
+  function runSelfTests() {
+    const savedBoard = boardRef.current.map(r => r.slice());
+    const savedPiece = JSON.parse(JSON.stringify(pieceRef.current));
+    const savedScore = score;
+    try {
+      boardRef.current = emptyBoard();
+      console.group('%cOhana Tetris – Self Tests','color:#7ef7d7;font-weight:700');
+      console.assert(Array.isArray(boardRef.current) && boardRef.current.length === ROWS && boardRef.current.every(r=>Array.isArray(r) && r.length===COLS), 'Board should be ROWS x COLS');
+      let tp = createPiece('O'); tp.x = 4; tp.y = -1; console.assert(!collides(tp,0,0), 'Piece should not collide in empty board at spawn');
+      let leftWall = createPiece('I'); leftWall.x = -1; leftWall.y = 0; console.assert(collides(leftWall,0,0), 'Piece at x=-1 should collide with wall');
+      let floorTest = createPiece('O'); floorTest.x = 4; floorTest.y = ROWS-2; console.assert(collides(floorTest,0,1)===true, 'Piece one step below bottom should collide');
+      boardRef.current[ROWS-1] = Array(COLS).fill('I'); let cleared = clearLines(); console.assert(cleared===1,'Exactly one line should be cleared');
+      boardRef.current[ROWS-1] = Array(COLS).fill('L'); boardRef.current[ROWS-2] = Array(COLS).fill('J'); cleared = clearLines(); console.assert(cleared===2,'Exactly two lines should be cleared');
+      const t = createPiece('T'); const count=(m:number[][])=>m.reduce((a,r)=>a+r.reduce((aa,v)=>aa+(v?1:0),0),0); const before=count(t.shape); const after=count(rotate(t.shape)); console.assert(before===after,'Rotation should preserve number of blocks');
+      let threw=false; try{ drawCell(0,0,'I'); }catch(e){ threw=true; } console.assert(threw===false,'drawCell should not throw (Path2D fill)');
+      const next = nextRef.current!; console.assert(next !== null, 'Next preview exists');
+      console.log('%cAll tests passed!','color:#6c9cf1;font-weight:700'); showToast('Self‑tests passed! Check console');
+    } catch (err) {
+      console.error('Self‑tests failed:', err); showToast('Self‑tests failed – see console', 1800);
+    } finally {
+      boardRef.current = savedBoard; pieceRef.current = savedPiece; (window as any)._s = savedScore; draw();
     }
+    console.groupEnd();
+  }
 
-    function gameLoop(ts){
-      if(!playing){ requestAnimationFrame(gameLoop); return; }
-      if(!lastDrop) lastDrop = ts;
-      const dt = ts - lastDrop;
-      if(dt >= dropInterval){ softDrop(); lastDrop = ts; }
-      draw();
-      requestAnimationFrame(gameLoop);
+  // Stars background
+  useEffect(() => {
+    const cont = document.getElementById('stars');
+    if (!cont) return;
+    cont.innerHTML = '';
+    const n = 120;
+    for (let i = 0; i < n; i++) {
+      const d = document.createElement('div');
+      d.className = 'star';
+      d.style.left = Math.random() * 100 + '%';
+      d.style.top = Math.random() * 100 + '%';
+      d.style.animationDelay = (Math.random() * 3) + 's';
+      d.style.opacity = (0.2 + Math.random() * 0.8).toFixed(2);
+      cont.appendChild(d);
     }
-    requestAnimationFrame(gameLoop);
+  }, []);
 
-    // --- Input ---
-    function tryMove(dx, dy){ if(!collides(piece,dx,dy)){ piece.x += dx; piece.y += dy; draw(); beep(520, .03);} }
-    function tryRotate(){
-      const r = rotate(piece.shape);
-      if(!collides(piece,0,0,r)){ piece.shape = r; draw(); beep(700, .03); return; }
-      // wall kicks (simple)
-      if(!collides(piece,-1,0,r)){ piece.x -= 1; piece.shape = r; draw(); beep(700, .03); return; }
-      if(!collides(piece,1,0,r)){ piece.x += 1; piece.shape = r; draw(); beep(700, .03); return; }
-    }
-
-    document.addEventListener('keydown', (e)=>{
-      if(e.repeat) return;
-      if(['ArrowLeft','ArrowRight','ArrowDown','ArrowUp','Space','KeyP','KeyR','KeyT'].includes(e.code)) e.preventDefault();
-      switch(e.code){
-        case 'ArrowLeft': tryMove(-1,0); break;
-        case 'ArrowRight': tryMove(1,0); break;
-        case 'ArrowDown': tryMove(0,1); break;
-        case 'ArrowUp': tryRotate(); break;
-        case 'Space': hardDrop(); break;
-        case 'KeyP': togglePause(); break;
-        case 'KeyR': restart(); break;
-        case 'KeyT': runSelfTests(); break; // quick dev shortcut
-      }
+  // Keep best score in localStorage whenever score updates
+  useEffect(() => {
+    setBest((b) => {
+      const nb = Math.max(b, score); localStorage.setItem(bestKey, String(nb)); return nb;
     });
+  }, [score]);
 
-    // touch controls
-    const qs = id => document.getElementById(id);
-    qs('left').onclick = ()=>tryMove(-1,0);
-    qs('right').onclick = ()=>tryMove(1,0);
-    qs('soft').onclick = ()=>tryMove(0,1);
-    qs('rotate').onclick = ()=>tryRotate();
-    qs('drop').onclick = ()=>hardDrop();
+  // Layout: 2/3 width on desktop, responsive fallback on small screens
+  return (
+    <div className="min-h-screen text-[#e8eeff]" style={{
+      background: "radial-gradient(1200px 800px at 10% 10%, #1b2550, transparent), radial-gradient(900px 600px at 90% 0%, #311a5a, transparent), linear-gradient(160deg, #0b1020, #1a1f3b)"
+    }}>
+      <style>{`
+        .stars { position: fixed; inset: 0; pointer-events: none; z-index: 0; }
+        .star { position: absolute; width: 2px; height: 2px; background: #fff; opacity: .75; border-radius: 50%; filter: drop-shadow(0 0 6px #9cf); animation: twinkle 3s infinite ease-in-out; }
+        @keyframes twinkle { 0%,100%{opacity:.3} 50%{opacity:1} }
+        .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: rgba(0,0,0,.75); border: 1px solid rgba(255,255,255,.2); padding: 12px 16px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,.35); opacity:0; pointer-events:none; transition: opacity .25s ease, transform .25s ease; z-index: 5; }
+        .toast.show { opacity:1; transform: translateX(-50%) translateY(-6px); }
+      `}</style>
 
-    // buttons
-    document.getElementById('btn-start').onclick = ()=>{ if(!playing){ playing = true; lastDrop = 0; showToast('Game Start!'); audioCtx && audioCtx.resume && audioCtx.resume(); } };
-    document.getElementById('btn-pause').onclick = ()=>togglePause();
-    document.getElementById('btn-restart').onclick = ()=>restart();
-    document.getElementById('btn-mute').onclick = (e)=>{ soundEnabled = !soundEnabled; e.target.textContent = 'Sound: ' + (soundEnabled? 'On':'Off'); };
-    document.getElementById('btn-test').onclick = ()=>runSelfTests();
+      <div id="stars" className="stars"/>
 
-    function togglePause(){ playing = !playing; showToast(playing? 'Resumed' : 'Paused'); }
-    function restart(){ board = emptyBoard(); score=0; lines=0; level=1; dropInterval=800; bag=[]; piece=createPiece(nextType()); nextPiece=createPiece(nextType()); renderNext(); updateStats(); draw(); playing=true; lastDrop=0; showToast('New Game – Good luck!'); }
+      <div className="flex justify-center p-6 relative z-10">
+        <div className="rounded-2xl border border-white/10 shadow-2xl overflow-clip backdrop-blur-md"
+             style={{ width: "66.6667vw", maxWidth: 1280, minWidth: 640, background: "rgba(255,255,255,.04)" }}>
 
-    // --- Quotes ---
-    const quotes = [
-      'Ohana means family. Family means nobody gets left behind or forgotten.',
-      'I like you. You be my friend?',
-      'Aloha! 🌺',
-      'This is my family. It’s little, and broken, but still good. Yeah, still good.',
-      'Blue punch buggy! No punch back!',
-      'You can be happy with me.',
-      'Stitch understands. Stitch is good. 🍪',
-      'Family is your superpower.',
-      'We’re a good team, you and me.',
-      'If you want to leave, you can. I’ll remember you though. I remember everyone that leaves.'
-    ];
+          {/* Header */}
+          <header className="flex items-center justify-between px-5 py-4 border-b border-white/10" style={{ background: "linear-gradient(180deg, rgba(255,255,255,.06), transparent)" }}>
+            <div className="flex items-center gap-3">
+              <svg width="30" height="30" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 2l2.5 3.5L19 7l-2.5 3.5L15 14l-3 1-3-1-1.5-3.5L5 7l4.5-1.5L12 2z" fill="url(#g)"/><defs><linearGradient id="g" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse"><stop stopColor="#6c9cf1"/><stop offset="1" stopColor="#8a5cff"/></linearGradient></defs></svg>
+              <div>
+                <div className="text-lg font-extrabold">Ohana Tetris</div>
+                <div className="text-xs opacity-80">Fill lines to unlock a Lilo & Stitch quote</div>
+              </div>
+            </div>
+            <div className="text-xs font-bold rounded-full px-3 py-1" style={{ background: "linear-gradient(90deg, #6c9cf1, #8a5cff)", color: "#081225" }}>Space-Borne Edition</div>
+          </header>
 
-    function showQuoteToast(){
-      const q = quotes[Math.floor(Math.random()*quotes.length)];
-      document.getElementById('quote').textContent = q;
-      showToast('★ Ohana Quote Unlocked!');
-    }
+          {/* Main */}
+          <main className="grid gap-4 p-4" style={{ gridTemplateColumns: "1fr 280px" }}>
+            {/* Board */}
+            <section className="rounded-xl border border-white/10 p-3 bg-black/25 flex flex-col items-center gap-3">
+              <canvas ref={canvasRef} width={320} height={640} aria-label="Tetris board" className="rounded-lg shadow-[inset_0_0_0_1px_rgba(255,255,255,.06),0_10px_30px_rgba(0,0,0,.35)]" style={{ background: "rgba(8,14,34,.8)" }}/>
 
-    // --- Toast ---
-    const toast = document.getElementById('toast');
-    let toastTimer;
-    function showToast(msg, ms=1200){
-      toast.textContent = msg;
-      toast.classList.add('show');
-      clearTimeout(toastTimer);
-      toastTimer = setTimeout(()=> toast.classList.remove('show'), ms);
-    }
+              <div className="flex flex-wrap gap-2">
+                <button onClick={() => { if (!playing) { setPlaying(true); lastDropRef.current = 0; showToast('Game Start!'); audioCtxRef.current?.resume?.(); } }} className="px-4 py-2 font-bold rounded-full border border-transparent" style={{ background: "linear-gradient(90deg, #6c9cf1, #8a5cff)", color: "#081225" }}>Start</button>
+                <button onClick={() => setPlaying((p) => { showToast(p? 'Paused':'Resumed'); return !p; })} className="px-4 py-2 font-bold rounded-full border border-white/20 bg-[#101737]">Pause (P)</button>
+                <button onClick={() => restart()} className="px-4 py-2 font-bold rounded-full border border-white/20 bg-[#101737]">Restart (R)</button>
+                <button onClick={() => setSoundOn(s => !s)} className="px-4 py-2 font-bold rounded-full border border-white/20 bg-[#101737]">Sound: {soundOn ? 'On':'Off'}</button>
+                <button onClick={() => runSelfTests()} className="px-4 py-2 font-bold rounded-full border border-white/20 bg-[#101737]" title="Run basic self-tests">Self‑Test</button>
+              </div>
 
-    // --- Basic self-tests (console) ---
-    function runSelfTests(){
-      const savedBoard = board;
-      const savedPiece = { type: piece.type, shape: piece.shape.map(r=>r.slice()), x: piece.x, y: piece.y };
-      const savedScore = score;
-      try {
-        let tBoard = emptyBoard();
-        board = tBoard; // use test board for isolated checks
+              {/* Touch pad */}
+              <div aria-label="Touch controls" className="grid" style={{ gridTemplateColumns: "repeat(3, 64px)", gridAutoRows: "64px", gap: 10 }}>
+                <button onClick={() => { if (!collides(pieceRef.current,-1,0)) { pieceRef.current.x--; draw(); beep(520, .03);} }} className="rounded-2xl border border-white/20 bg-[#101737]">◀</button>
+                <button onClick={() => { const r=rotate(pieceRef.current.shape); if(!collides(pieceRef.current,0,0,r)){ pieceRef.current.shape=r; draw(); beep(700,.03); return;} if(!collides(pieceRef.current,-1,0,r)){ pieceRef.current.x-=1; pieceRef.current.shape=r; draw(); beep(700,.03); return;} if(!collides(pieceRef.current,1,0,r)){ pieceRef.current.x+=1; pieceRef.current.shape=r; draw(); beep(700,.03); return;} }} className="rounded-2xl border border-white/20 bg-[#101737]">⟳</button>
+                <button onClick={() => { if (!collides(pieceRef.current,1,0)) { pieceRef.current.x++; draw(); beep(520,.03);} }} className="rounded-2xl border border-white/20 bg-[#101737]">▶</button>
+                <button onClick={() => softDrop()} className="rounded-2xl border border-white/20 bg-[#101737]">▼</button>
+                <button onClick={() => hardDrop()} className="rounded-2xl border border-transparent" style={{ gridColumn: "span 3", background: "linear-gradient(90deg, #6c9cf1, #8a5cff)", color: "#081225" }}>HARD DROP (Space)</button>
+              </div>
+            </section>
 
-        console.group('%cOhana Tetris – Self Tests','color:#7ef7d7;font-weight:700');
+            {/* Side */}
+            <aside className="grid gap-3">
+              <div className="rounded-xl border border-white/10 p-3 bg-black/25">
+                <h3 className="m-0 mb-2 text-sm opacity-90 tracking-wide uppercase">Stats</h3>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="text-center rounded-xl bg-white/10 p-2"><div>Score</div><div className="text-2xl font-extrabold">{score}</div></div>
+                  <div className="text-center rounded-xl bg-white/10 p-2"><div>Level</div><div className="text-2xl font-extrabold">{level}</div></div>
+                  <div className="text-center rounded-xl bg-white/10 p-2"><div>Lines</div><div className="text-2xl font-extrabold">{lines}</div></div>
+                  <div className="text-center rounded-xl bg-white/10 p-2"><div>Best</div><div className="text-2xl font-extrabold">{best}</div></div>
+                </div>
+              </div>
 
-        // Test: board shape
-        console.assert(Array.isArray(board) && board.length === ROWS && board.every(r=>Array.isArray(r) && r.length===COLS), 'Board should be ROWS x COLS');
+              <div className="rounded-xl border border-white/10 p-3 bg-black/25">
+                <h3 className="m-0 mb-2 text-sm opacity-90 tracking-wide uppercase">Next</h3>
+                <div ref={nextRef} className="grid bg-[rgba(8,14,34,.8)] rounded-lg shadow-[inset_0_0_0_1px_rgba(255,255,255,.06)]" style={{ gridTemplateColumns: "repeat(5, 20px)", gridAutoRows: "20px", gap: 3, justifyContent: 'start', padding: 10 }} />
+              </div>
 
-        // Test: collision in empty board should be false
-        let tp = createPiece('O');
-        tp.x = 4; tp.y = -1; // entering from top
-        console.assert(!collides(tp,0,0), 'Piece should not collide in empty board at spawn');
+              <div className="rounded-xl border border-white/10 p-3 bg-black/25">
+                <h3 className="m-0 mb-2 text-sm opacity-90 tracking-wide uppercase">Ohana Quote</h3>
+                <div id="quote" className="min-h-[72px] rounded-xl bg-white/10 p-2 font-bold text-center flex items-center justify-center">Fill a line to hear from Lilo & Stitch 💫</div>
+              </div>
+            </aside>
+          </main>
 
-        // Test: wall collision
-        let leftWall = createPiece('I');
-        leftWall.x = -1; leftWall.y = 0;
-        console.assert(collides(leftWall,0,0), 'Piece at x=-1 should collide with wall');
+          <footer className="text-center px-4 pb-4 opacity-80">Controls: ← → move, ↑ rotate, ↓ soft drop, Space hard drop, P pause. Theme inspired by Lilo & Stitch. “Ohana means family.”</footer>
+        </div>
+      </div>
 
-        // Test: floor collision
-        let floorTest = createPiece('O');
-        floorTest.x = 4; floorTest.y = ROWS - 2; // O is 2 tall
-        console.assert(collides(floorTest,0,1) === true, 'Piece one step below bottom should collide');
-
-        // Test: merge then clear line (1 line)
-        board[ROWS-1] = Array(COLS).fill('I');
-        let cleared = clearLines();
-        console.assert(cleared === 1, 'Exactly one line should be cleared');
-        console.assert(board[0].every(v=>v===null), 'Top row should be empty after clear');
-
-        // Test: multi-line clear (2 lines)
-        board[ROWS-1] = Array(COLS).fill('L');
-        board[ROWS-2] = Array(COLS).fill('J');
-        cleared = clearLines();
-        console.assert(cleared === 2, 'Exactly two lines should be cleared');
-
-        // Test: rotation keeps block count
-        const t = createPiece('T');
-        const count = (m)=>m.reduce((a,r)=>a+r.reduce((aa,v)=>aa+(v?1:0),0),0);
-        const before = count(t.shape);
-        const after = count(rotate(t.shape));
-        console.assert(before === after, 'Rotation should preserve number of blocks');
-
-        // Test: Path2D fill smoke test (drawCell should not throw)
-        let threw = false; try { drawCell(0,0,'I'); } catch(e){ threw = true; }
-        console.assert(threw === false, 'drawCell should not throw (Path2D fill)');
-
-        // Test: next preview grid size
-        const next = document.getElementById('next');
-        console.assert(next.children.length === 25, 'Next preview should have 25 cells');
-
-        console.log('%cAll tests passed!','color:#6c9cf1;font-weight:700');
-        showToast('Self‑tests passed! Check console');
-      } catch(err){
-        console.error('Self‑tests failed:', err);
-        showToast('Self‑tests failed – see console', 1800);
-      } finally {
-        board = savedBoard;
-        piece = savedPiece;
-        score = savedScore;
-        draw();
-      }
-      console.groupEnd();
-    }
-
-    // initial draw AFTER board has been initialized
-    draw(); renderNext(); updateStats();
-  </script>
-</body>
-</html>
+      {/* Toast */}
+      <div ref={toastRef} className="toast" role="status" aria-live="polite" />
+    </div>
+  );
+}
