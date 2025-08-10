@@ -132,7 +132,10 @@ function Tetris(){
   const audioCtxRef = useRef(null);
 
   function emptyBoard(){ return Array.from({length: ROWS}, ()=>Array(COLS).fill(null)); }
-  function nextType(){ if(bagRef.current.length===0) bagRef.current=[...TYPES].sort(()=>Math.random()-0.5); return bagRef.current.pop() as string; }
+  function nextType(){
+    if(bagRef.current.length===0) bagRef.current=[...TYPES].sort(()=>Math.random()-0.5);
+    return bagRef.current.pop();
+  }
   function createPiece(type: keyof typeof SHAPES){ const shape=SHAPES[type].map(r=>r.slice()); return {type, shape, x: Math.floor((COLS-shape[0].length)/2), y: -1}; }
   function rotate(m:number[][]){ const N=m.length, M=m[0].length; const r=Array.from({length:M},()=>Array(N).fill(0)); for(let y=0;y<N;y++) for(let x=0;x<M;x++) r[x][N-1-y]=m[y][x]; return r; }
   function collides(p:any, dx=0, dy=0, test:number[][]|null=null){ const sh=test||p.shape; const b=boardRef.current; for(let y=0;y<sh.length;y++){ for(let x=0;x<sh[y].length;x++){ if(!sh[y][x]) continue; const nx=p.x+x+dx, ny=p.y+y+dy; if(nx<0||nx>=COLS||ny>=ROWS) return true; if(ny>=0 && b[ny][nx]) return true; } } return false; }
