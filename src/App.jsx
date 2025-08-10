@@ -124,7 +124,7 @@ function Tetris(){
   const TYPES = useMemo(() => Object.keys(SHAPES), [SHAPES]);
   const ctxRef = useRef(null);
   const boardRef = useRef(emptyBoard());
-  const bagRef = useRef<string[]>([]);
+  const bagRef = useRef([]);
   const pieceRef = useRef<any>(null);
   const nextPieceRef = useRef<any>(null);
   const lastDropRef = useRef(0);
