@@ -28,7 +28,7 @@ export default function OhanaTetrisApp() {
     T: [[0,1,0],[1,1,1],[0,0,0]],
     Z: [[1,1,0],[0,1,1],[0,0,0]],
   }), []);
-  const TYPES = useMemo(() => Object.keys(SHAPES) as Array<keyof typeof SHAPES>, [SHAPES]);
+  const TYPES = useMemo(() => Object.keys(SHAPES), [SHAPES]);
 
   // Game mutable state in refs so renders don't reset them
   const ctxRef = useRef<CanvasRenderingContext2D | null>(null);
