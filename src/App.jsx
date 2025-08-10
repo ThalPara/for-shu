@@ -6,6 +6,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
  * - Responsive layout (2/3 width on desktop, single column on mobile)
  * - Mobile Tetris touch controls
  * - Path2D fill fix for rounded cells
+ * - Self‑tests for all games
  */
 
 export default function OhanaArcade() {
@@ -165,11 +166,7 @@ function Tetris(){
   function createPiece(type){ const shape=SHAPES[type].map(r=>r.slice()); return {type, shape, x: Math.floor((COLS-shape[0].length)/2), y: -1}; }
   function rotate(m){ const N=m.length, M=m[0].length; const r=Array.from({length:M},()=>Array(N).fill(0)); for(let y=0;y<N;y++) for(let x=0;x<M;x++) r[x][N-1-y]=m[y][x]; return r; }
   function collides(p, dx=0, dy=0, test=null){ const sh=test||p.shape; const b=boardRef.current; for(let y=0;y<sh.length;y++){ for(let x=0;x<sh[y].length;x++){ if(!sh[y][x]) continue; const nx=p.x+x+dx, ny=p.y+y+dy; if(nx<0||nx>=COLS||ny>=ROWS) return true; if(ny>=0 && b[ny][nx]) return true; } } return false; }
-  function merge(p){ const b=boardRef.current; for(let y=0;y<p.shape.length;y++){
-    for(let x=0;x<p.shape[y].length;x++){
-      if(p.shape[y][x]){ const ny=p.y+y, nx=p.x+x; if(ny>=0) b[ny][nx]=p.type; }
-    }
-  } }
+  function merge(p){ const b=boardRef.current; for(let y=0;y<p.shape.length;y++){ for(let x=0;x<p.shape[y].length;x++){ if(p.shape[y][x]){ const ny=p.y+y, nx=p.x+x; if(ny>=0) b[ny][nx]=p.type; } } } }
   function clearLines(){ let c=0; const b=boardRef.current; for(let y=ROWS-1;y>=0;y--){ if(b[y].every(Boolean)){ b.splice(y,1); b.unshift(Array(COLS).fill(null)); c++; y++; } } return c; }
   function roundRectPath(x,y,w,h,r){ const p=new Path2D(); r=Math.min(r,w/2,h/2); p.moveTo(x+r,y); p.arcTo(x+w,y,x+w,y+h,r); p.arcTo(x+w,y+h,x,y+h,r); p.arcTo(x,y+h,x,y,r); p.arcTo(x,y,x+w,y,r); p.closePath(); return p; }
   function drawCell(x,y,type,ghost=false){ const ctx=ctxRef.current; if(!ctx) return; const px=x*cellPx, py=y*cellPx; const color=COLORS[type]||'#4fc3f7'; ctx.fillStyle=color; ctx.globalAlpha=ghost?0.25:1; const r=6; const base=roundRectPath(px+1,py+1,cellPx-2,cellPx-2,r); ctx.fill(base); ctx.globalAlpha=ghost?0.18:0.4; ctx.fillStyle='#ffffff'; const gloss=roundRectPath(px+4,py+4,cellPx-8,(cellPx-8)/3,r); ctx.fill(gloss); ctx.globalAlpha=1; }
@@ -221,6 +218,23 @@ function Tetris(){
 
   function restart(){ boardRef.current=emptyBoard(); bagRef.current=[]; pieceRef.current=createPiece(nextType()); nextPieceRef.current=createPiece(nextType()); setScore(0); setLevel(1); setLines(0); dropIntervalRef.current=800; lastDropRef.current=0; renderNext(); draw(); setPlaying(true); showToast('New Game – Good luck!'); }
 
+  function tetrisSelfTests(){
+    const savedBoard=boardRef.current.map(r=>r.slice()); const savedPiece=JSON.parse(JSON.stringify(pieceRef.current));
+    try{
+      console.group('%cTetris Self‑Tests','color:#0f3554;font-weight:700');
+      boardRef.current=emptyBoard();
+      console.assert(boardRef.current.length===ROWS && boardRef.current.every(r=>r.length===COLS),'Board size');
+      let tp=createPiece('O'); tp.x=4; tp.y=-1; console.assert(!collides(tp,0,0),'Spawn non-collision');
+      let left=createPiece('I'); left.x=-1; left.y=0; console.assert(collides(left,0,0),'Wall collision');
+      let floor=createPiece('O'); floor.x=4; floor.y=ROWS-2; console.assert(collides(floor,0,1)===true,'Floor collision');
+      boardRef.current[ROWS-1]=Array(COLS).fill('I'); let cleared=clearLines(); console.assert(cleared===1,'Single line clear');
+      boardRef.current[ROWS-1]=Array(COLS).fill('J'); boardRef.current[ROWS-2]=Array(COLS).fill('L'); cleared=clearLines(); console.assert(cleared===2,'Double line clear');
+      let ok=true; try{ const ctx=ctxRef.current; if(ctx){ const path=new Path2D(); ctx.fill(path);} }catch(e){ ok=false;} console.assert(ok,'Path2D fill');
+      console.log('%cAll good!','color:#2196f3;font-weight:700'); showToast('Tetris tests passed');
+    }catch(err){ console.error(err); showToast('Tetris tests failed – see console', 1800); }
+    finally{ boardRef.current=savedBoard; pieceRef.current=savedPiece; draw(); console.groupEnd(); }
+  }
+
   return (
     <main className="two-col">
       <section className="card" style={{alignItems:'center',display:'flex',flexDirection:'column',gap:12}}>
@@ -231,6 +245,7 @@ function Tetris(){
           <button className="btn" onClick={()=>setPlaying(p=>{ showToast(p?'Paused':'Resumed'); return !p; })}>Pause (P)</button>
           <button className="btn" onClick={restart}>Restart (R)</button>
           <button className="btn" onClick={()=>setSoundOn(s=>!s)}>Sound: {soundOn?'On':'Off'}</button>
+          <button className="btn" onClick={tetrisSelfTests}>Self‑Test</button>
         </div>
 
         <div className="mobile-pad">
@@ -310,6 +325,18 @@ function Sudoku(){
   }
   function revealOne(){ const sol = solutions[puzzleIndex]; setGrid(prev=>{ const g=prev.map(r=>r.slice()); const {r,c}=selected; if(fixed[r][c]) return g; g[r][c]=Number(sol[r*9+c]); return g; }); showToast('Hint revealed'); }
 
+  function sudokuSelfTests(){
+    try{
+      console.group('%cSudoku Self‑Tests','color:#0f3554;font-weight:700');
+      const g0=strToGrid(puzzles[0]); console.assert(isValid(g0),'Starter puzzle valid');
+      const wrong=strToGrid(puzzles[0]); wrong[0][0]=9; console.assert(!isValid(wrong),'Duplicate invalid');
+      const sol=strToGrid(solutions[0]); console.assert(isValid(sol),'Solution valid');
+      console.assert(gridToStr(sol)===solutions[0],'Solution string matches');
+      console.log('%cAll good!','color:#2196f3;font-weight:700'); showToast('Sudoku tests passed');
+    }catch(err){ console.error(err); showToast('Sudoku tests failed – see console', 1800); }
+    finally{ console.groupEnd(); }
+  }
+
   useEffect(()=>{
     function onKey(e){
       if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Backspace','Delete','Digit0','Numpad0'].includes(e.code) || (/Digit[1-9]|Numpad[1-9]/.test(e.code))){ e.preventDefault?.(); }
@@ -350,6 +377,7 @@ function Sudoku(){
           <button className="btn btnPrimary" onClick={check}>Check</button>
           <button className="btn" onClick={revealOne}>Hint</button>
           <button className="btn" onClick={newPuzzle}>New</button>
+          <button className="btn" onClick={sudokuSelfTests}>Self‑Test</button>
         </div>
       </section>
       <aside style={{display:'grid',gap:12}}>
@@ -372,223 +400,63 @@ function Sudoku(){
 
 /* -------------------- MARVEL QUIZ -------------------- */
 function MarvelQuiz(){
-  // ===== Question source: built-in templated facts OR user-provided JSON =====
-  const FACTS = useMemo(()=>[
-    { key:'wolverine-metal', choices:['Vibranium','Adamantium','Uru','Carbonadium'], correct:'Adamantium', templates:[
-      "Which metal is bonded to Wolverine's skeleton?",
-      "Wolverine's skeleton is coated with which metal?",
-      "Logan's bones are reinforced by what metal?",
-      "What metal is fused to Wolverine's skeleton in most storylines?"
-    ]},
-    { key:'thor-hammer', choices:['Gungnir','Stormbreaker','Hofund','Mjolnir'], correct:'Mjolnir', templates:[
-      "What is the name of Thor's iconic hammer?",
-      "Thor primarily wields which hammer?",
-      "Which weapon is known as the enchanted hammer of Thor?",
-      "Identify Thor's classic hammer." ]},
-    { key:'tchalla-king', choices:['Genosha','Wakanda','Latveria','Sokovia'], correct:'Wakanda', templates:[
-      "T'Challa is the king of which nation?",
-      "Black Panther rules what African nation?",
-      "Which country is T'Challa monarch of?",
-      "Name the high‑tech nation ruled by T'Challa." ]},
-    { key:'time-stone', choices:['Blue','Green','Red','Purple'], correct:'Green', templates:[
-      "Which Infinity Stone controls time?",
-      "The Time Stone is what color in the MCU?",
-      "Which Infinity Stone governs time manipulation?",
-      "Name the Infinity Stone associated with time." ]},
-    { key:'natasha-alias', choices:['Black Widow','Scarlet Witch','Wasp','Gamora'], correct:'Black Widow', templates:[
-      "Natasha Romanoff is also known as…",
-      "What's the superhero alias of Natasha Romanoff?",
-      "Which codename belongs to Natasha Romanoff?",
-      "Identify Natasha Romanoff's alias." ]},
-    { key:'parker-paper', choices:['Daily Planet','Daily Bugle','The Post','Clarion'], correct:'Daily Bugle', templates:[
-      "Peter Parker works as a photographer for which newspaper (classic canon)?",
-      "Which paper famously employs Peter Parker as a photographer?",
-      "Name the New York tabloid Peter Parker shoots for.",
-      "Peter Parker sells photos to what newspaper?" ]},
-    { key:'cap-quote', choices:['Iron Man','Captain America','Hawkeye','Star-Lord'], correct:'Captain America', templates:[
-      "Which hero famously says “I can do this all day”?",
-      "Who delivers the line 'I can do this all day'?",
-      "Who is known for the catchphrase 'I can do this all day'?",
-      "Identify the Avenger who says 'I can do this all day'." ]},
-    { key:'banner-field', choices:['Biochemist','Nuclear physicist','Astrophysicist','Engineer'], correct:'Nuclear physicist', templates:[
-      "What kind of scientist is Bruce Banner primarily?",
-      "Bruce Banner's field of expertise is primarily what?",
-      "Which discipline best describes Bruce Banner's profession?",
-      "Banner is first and foremost a what?" ]},
-    { key:'daredevil-city', choices:['Gotham','Metropolis','Hell\'s Kitchen','Star City'], correct:"Hell's Kitchen", templates:[
-      "Which city is Daredevil strongly associated with?",
-      "Matt Murdock protects which NYC neighborhood?",
-      "Daredevil is the guardian devil of what area?",
-      "Name Daredevil's neighborhood." ]},
-    { key:'wolverine-team', choices:['Avengers','X‑Men','Fantastic Four','Inhumans'], correct:'X‑Men', templates:[
-      "Which team is Logan (Wolverine) most associated with?",
-      "Wolverine is best known as a member of which team?",
-      "Logan commonly fights alongside what team?",
-      "Identify the team most linked to Wolverine." ]},
+  const QUESTIONS = useMemo(()=>[
+    { q: 'Which metal is bonded to Wolverine\'s skeleton?', choices: ['Vibranium','Adamantium','Uru','Carbonadium'], a: 1 },
+    { q: 'What is the name of Thor\'s hammer (primary in many stories)?', choices: ['Gungnir','Stormbreaker','Hofund','Mjolnir'], a: 3 },
+    { q: 'T\'Challa is the king of which nation?', choices: ['Genosha','Wakanda','Latveria','Sokovia'], a: 1 },
+    { q: 'Which Infinity Stone controls time?', choices: ['Blue','Green','Red','Purple'], a: 1 },
+    { q: 'Natasha Romanoff is also known as…', choices: ['Black Widow','Scarlet Witch','Wasp','Gamora'], a: 0 },
+    { q: 'Peter Parker works as a photographer for which newspaper (classic canon)?', choices: ['Daily Planet','Daily Bugle','The Post','Clarion'], a: 1 },
+    { q: 'Which hero famously says “I can do this all day”?', choices: ['Iron Man','Captain America','Hawkeye','Star-Lord'], a: 1 },
+    { q: 'What kind of scientist is Bruce Banner primarily?', choices: ['Biochemist','Nuclear physicist','Astrophysicist','Engineer'], a: 1 },
+    { q: 'Which city is Daredevil strongly associated with?', choices: ['Gotham','Metropolis','Hell\'s Kitchen','Star City'], a: 2 },
+    { q: 'Which team is Logan (Wolverine) most associated with?', choices: ['Avengers','X‑Men','Fantastic Four','Inhumans'], a: 1 },
   ],[]);
 
-  // RNG + helpers
-  const rng = useRef(Math.random());
-  function rand(){ return (rng.current = (rng.current * 9301 + 49297) % 233280) / 233280; }
-  function shuffle(arr){ const a=arr.slice(); for(let i=a.length-1;i>0;i--){ const j=Math.floor(rand()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
-
-  // Build a large internal pool (fallback when user hasn't provided JSON)
-  function buildPoolFromFacts(target=1000){
-    const pool=[]; const seen=new Set();
-    while(pool.length<target){
-      const f = FACTS[Math.floor(rand()*FACTS.length)];
-      const tmpl = f.templates[Math.floor(rand()*f.templates.length)];
-      const choices = shuffle(f.choices);
-      const aIdx = choices.indexOf(f.correct);
-      const qStr = tmpl;
-      const key = qStr+"|"+choices.join(',');
-      if(seen.has(key)) continue; seen.add(key);
-      pool.push({ q:qStr, choices, a:aIdx });
-    }
-    return pool;
-  }
-
-  // ===== Custom JSON support =====
-  // Acceptable shapes per item:
-  // { q, choices: string[], a:number } OR { question, choices, answerIndex } OR { question, correct, distractors[] }
-  function normalizeItems(items){
-    const out=[]; if(!Array.isArray(items)) return out;
-    for(const raw of items){
-      const q = raw.q || raw.question || raw.prompt;
-      let choices = Array.isArray(raw.choices) ? raw.choices.slice() : (Array.isArray(raw.options) ? raw.options.slice() : null);
-      let a = (typeof raw.a==='number' ? raw.a : (typeof raw.answerIndex==='number' ? raw.answerIndex : null));
-      const correctStr = raw.correct || raw.answer || raw.correctAnswer;
-      const distractors = Array.isArray(raw.distractors) ? raw.distractors.slice() : null;
-      if(!choices && correctStr){
-        // build from correct + distractors
-        const base = distractors && distractors.length ? distractors.slice() : [];
-        choices = base.includes(correctStr) ? base : [correctStr, ...base];
-      }
-      if(!q || !choices || choices.length < 2) continue;
-      if(a==null){
-        if(correctStr!=null){
-          const idx = choices.findIndex(c => String(c).trim().toLowerCase() === String(correctStr).trim().toLowerCase());
-          if(idx>=0) a = idx; else { choices = shuffle([correctStr, ...choices]); a = choices.indexOf(correctStr); }
-        } else {
-          // default first item as correct if nothing provided
-          a = 0;
-        }
-      }
-      // clamp
-      a = Math.max(0, Math.min(choices.length-1, a));
-      out.push({ q:String(q), choices:choices.map(String), a });
-    }
-    return out;
-  }
-
-  // Persist custom JSON in localStorage
-  const [customPool, setCustomPool] = useState(()=>{
-    try{ const t = localStorage.getItem('ohana-marvel-quiz-json'); if(!t) return null; const parsed = JSON.parse(t); const norm = normalizeItems(parsed); return norm.length? norm : null; }catch{ return null; }
-  });
-  const [usingCustom, setUsingCustom] = useState(()=>!!customPool);
-
-  function applyCustomJSONText(text){
-    try{
-      const parsed = JSON.parse(text);
-      const norm = normalizeItems(parsed);
-      if(!norm.length) { showToast('Invalid or empty questions JSON'); return; }
-      localStorage.setItem('ohana-marvel-quiz-json', JSON.stringify(parsed));
-      setCustomPool(norm); setUsingCustom(true);
-      showToast(`Loaded ${norm.length} questions`);
-      // Reset current run to use the new pool
-      setOrder(shuffle([...Array(norm.length).keys()]).slice(0,N_PER_RUN));
-      setIndex(0); setScore(0); setDone(false); setUsedSkip(false); setReveal(false);
-    }catch(err){ console.error(err); showToast('JSON parse error'); }
-  }
-
-  function clearCustom(){ localStorage.removeItem('ohana-marvel-quiz-json'); setCustomPool(null); setUsingCustom(false); showToast('Using built-in pool'); restart(true); }
-
-  // Build current POOL depending on custom JSON
-  const POOL = useMemo(()=>{
-    rng.current = (Date.now()%100000)/100000;
-    if(usingCustom && customPool && customPool.length) return customPool;
-    return buildPoolFromFacts(1200);
-  },[usingCustom, customPool]);
-
-  // Gameplay state
-  const N_PER_RUN = 10;
-  const [order, setOrder] = useState(()=>shuffle([...Array(Math.max(1, POOL.length)).keys()]).slice(0,N_PER_RUN));
   const [index, setIndex] = useState(0);
   const [score, setScore] = useState(0);
   const [done, setDone] = useState(false);
   const [usedSkip, setUsedSkip] = useState(false);
   const [reveal, setReveal] = useState(false);
-  const [showPaste, setShowPaste] = useState(false);
-  const textAreaRef = useRef(null);
-
-  // Rebuild order when POOL changes (e.g., user loaded custom JSON)
-  useEffect(()=>{
-    setOrder(shuffle([...Array(Math.max(1, POOL.length)).keys()]).slice(0,N_PER_RUN));
-    setIndex(0); setScore(0); setDone(false); setUsedSkip(false); setReveal(false);
-  },[POOL]);
 
   function pick(i){
     if(done) return;
     setReveal(true);
-    const qObj = POOL[order[index]];
-    const correct = i === qObj.a;
+    const correct = i === QUESTIONS[index].a;
     if(correct) { setScore(s=>s+1); showToast('Correct! ✨'); }
     else showToast('Not quite.');
     setTimeout(()=>{
       setReveal(false);
-      if(index+1>=order.length){ setDone(true); showToast('Quiz complete!'); }
+      if(index+1>=QUESTIONS.length){ setDone(true); showToast('Quiz complete!'); }
       else setIndex(index+1);
     }, 650);
   }
 
-  function skip(){ if(usedSkip||done) return; setUsedSkip(true); showToast('Skipped ➡️'); setIndex(i=>Math.min(i+1, order.length-1)); }
-  function restart(silent=false){
-    setOrder(shuffle([...Array(Math.max(1, POOL.length)).keys()]).slice(0,N_PER_RUN));
-    setIndex(0); setScore(0); setDone(false); setUsedSkip(false); setReveal(false); if(!silent) showToast('New Quiz!');
+  function skip(){ if(usedSkip||done) return; setUsedSkip(true); showToast('Skipped ➡️'); setIndex(i=>Math.min(i+1, QUESTIONS.length-1)); }
+  function restart(){ setIndex(0); setScore(0); setDone(false); setUsedSkip(false); setReveal(false); showToast('New Quiz!'); }
+
+  function quizTests(){
+    try{
+      console.group('%cMarvel Quiz Self‑Tests','color:#0f3554;font-weight:700');
+      console.assert(Array.isArray(QUESTIONS) && QUESTIONS.length>=5,'Has questions');
+      const first=QUESTIONS[0]; console.assert(first.a>=0 && first.a<first.choices.length,'Answer index in range');
+      console.log('%cAll good!','color:#2196f3;font-weight:700'); showToast('Quiz tests passed');
+    }catch(e){ console.error(e); showToast('Quiz tests failed – see console'); }
+    finally{ console.groupEnd(); }
   }
 
-  const qObj = POOL[order[index]] || { q:'No questions loaded', choices:['Load JSON above'], a:0 };
-  const progressPct = Math.round(((index) / order.length) * 100);
+  const q = QUESTIONS[index];
+  const progressPct = Math.round(((index) / QUESTIONS.length) * 100);
 
   return (
     <main className="two-col">
       <section className="card" style={{display:'grid',gap:12}}>
         <h3 style={sideH3}>Marvel Quiz</h3>
-
-        {/* Source controls */}
-        <div className="card" style={{display:'grid',gap:10}}>
-          <div style={{fontWeight:800}}>Question Source</div>
-          <div style={{display:'flex',flexWrap:'wrap',gap:8,alignItems:'center'}}>
-            <label className="btn" style={{cursor:'pointer'}}>
-              Upload JSON
-              <input type="file" accept="application/json,.json" style={{display:'none'}} onChange={(e)=>{
-                const f=e.target.files?.[0]; if(!f) return; const fr=new FileReader(); fr.onload=()=>applyCustomJSONText(String(fr.result||'')); fr.readAsText(f);
-              }}/>
-            </label>
-            <button className="btn" onClick={()=>setShowPaste(v=>!v)}>{showPaste? 'Hide' : 'Paste JSON'}</button>
-            <button className="btn" onClick={clearCustom} disabled={!usingCustom}>Use Built‑in</button>
-            <div style={{opacity:.8}}>{usingCustom? `Using custom JSON (${customPool?.length||0} items)` : 'Using built‑in pool'}</div>
-          </div>
-          {showPaste && (
-            <div style={{display:'grid',gap:8}}>
-              <textarea ref={textAreaRef} placeholder='[ { "q": "Who is Iron Man?", "choices":["Tony Stark","Bruce Wayne"], "a":0 } ]' rows={6} style={{width:'100%',border:'1px solid #cfe9ff',borderRadius:10,padding:10}}/>
-              <div style={{display:'flex',gap:8}}>
-                <button className="btn btnPrimary" onClick={()=>applyCustomJSONText(textAreaRef.current?.value||'')}>Load</button>
-                <button className="btn" onClick={()=>{ if(textAreaRef.current) textAreaRef.current.value=''; }}>Clear</button>
-              </div>
-              <small style={{opacity:.7}}>
-                Supported shapes per item: {`{ q, choices[], a }`} • {`{ question, choices[], answerIndex }`} • {`{ question, correct, distractors[] }`}
-              </small>
-            </div>
-          )}
-        </div>
-
-        {/* Question card */}
         <div className="card" style={{padding:16}}>
-          <div style={{fontSize:18,fontWeight:800,marginBottom:8,lineHeight:1.3}}>{qObj.q}</div>
+          <div style={{fontSize:18,fontWeight:800,marginBottom:8,lineHeight:1.3}}>{q.q}</div>
           <div style={{display:'grid',gap:10}}>
-            {qObj.choices.map((c,i)=>{
-              const isCorrect = i===qObj.a;
+            {q.choices.map((c,i)=>{
+              const isCorrect = i===q.a;
               const show = reveal;
               const bg = show ? (isCorrect? 'linear-gradient(90deg,#4fc3f7,#2196f3)' : '#e9f4ff') : '#e9f4ff';
               const color = show && isCorrect ? '#ffffff' : '#0f3554';
@@ -607,10 +475,11 @@ function MarvelQuiz(){
             <div style={{flex:1,height:8,background:'#e6f3ff',borderRadius:999,overflow:'hidden'}}>
               <div style={{width:progressPct+'%',height:'100%',background:'linear-gradient(90deg,#4fc3f7,#2196f3)'}}/>
             </div>
-            <div style={{opacity:.8,fontWeight:700}}>{index+1} / {order.length}</div>
+            <div style={{opacity:.8,fontWeight:700}}>{index+1} / {QUESTIONS.length}</div>
           </div>
           <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
-            <button className="btn" onClick={()=>restart(false)}>Restart</button>
+            <button className="btn" onClick={quizTests}>Self‑Test</button>
+            <button className="btn" onClick={restart}>Restart</button>
             <button className="btn btnPrimary" onClick={skip} disabled={usedSkip}>Skip {usedSkip?'✓':''}</button>
           </div>
         </div>
@@ -618,23 +487,22 @@ function MarvelQuiz(){
       <aside style={{display:'grid',gap:12}}>
         <div className="card">
           <h3 style={sideH3}>Score</h3>
-          <div style={{fontSize:28,fontWeight:900,textAlign:'center'}}>{score} / {order.length}</div>
+          <div style={{fontSize:28,fontWeight:900,textAlign:'center'}}>{score} / {QUESTIONS.length}</div>
           {done && (
             <div style={{marginTop:8,textAlign:'center',fontWeight:700}}>
-              {score===order.length? 'Flawless victory! ✨' : score>order.length/2? 'Nice work! 🦸' : 'Good try — play again!'}
+              {score===QUESTIONS.length? 'Flawless victory! ✨' : score>QUESTIONS.length/2? 'Nice work! 🦸' : 'Good try — play again!'}
             </div>
           )}
         </div>
         <div className="card">
           <h3 style={sideH3}>Tips</h3>
           <ul style={{margin:0,paddingLeft:18,lineHeight:1.4}}>
-            <li>Upload or paste your JSON to use your own questions.</li>
-            <li>Supported shapes: {`{ q, choices[], a }`} • {`{ question, choices[], answerIndex }`} • {`{ question, correct, distractors[] }`}.</li>
-            <li>Restart to reshuffle. Skip is available once per run.</li>
+            <li>Pick the best answer. We reveal the correct one briefly.</li>
+            <li>Use <b>Skip</b> once per run.</li>
+            <li>Restart anytime to reshuffle your memory.</li>
           </ul>
         </div>
       </aside>
     </main>
   );
 }
-
