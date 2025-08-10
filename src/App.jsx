@@ -218,23 +218,6 @@ function Tetris(){
 
   function restart(){ boardRef.current=emptyBoard(); bagRef.current=[]; pieceRef.current=createPiece(nextType()); nextPieceRef.current=createPiece(nextType()); setScore(0); setLevel(1); setLines(0); dropIntervalRef.current=800; lastDropRef.current=0; renderNext(); draw(); setPlaying(true); showToast('New Game – Good luck!'); }
 
-  function tetrisSelfTests(){
-    const savedBoard=boardRef.current.map(r=>r.slice()); const savedPiece=JSON.parse(JSON.stringify(pieceRef.current));
-    try{
-      console.group('%cTetris Self‑Tests','color:#0f3554;font-weight:700');
-      boardRef.current=emptyBoard();
-      console.assert(boardRef.current.length===ROWS && boardRef.current.every(r=>r.length===COLS),'Board size');
-      let tp=createPiece('O'); tp.x=4; tp.y=-1; console.assert(!collides(tp,0,0),'Spawn non-collision');
-      let left=createPiece('I'); left.x=-1; left.y=0; console.assert(collides(left,0,0),'Wall collision');
-      let floor=createPiece('O'); floor.x=4; floor.y=ROWS-2; console.assert(collides(floor,0,1)===true,'Floor collision');
-      boardRef.current[ROWS-1]=Array(COLS).fill('I'); let cleared=clearLines(); console.assert(cleared===1,'Single line clear');
-      boardRef.current[ROWS-1]=Array(COLS).fill('J'); boardRef.current[ROWS-2]=Array(COLS).fill('L'); cleared=clearLines(); console.assert(cleared===2,'Double line clear');
-      let ok=true; try{ const ctx=ctxRef.current; if(ctx){ const path=new Path2D(); ctx.fill(path);} }catch(e){ ok=false;} console.assert(ok,'Path2D fill');
-      console.log('%cAll good!','color:#2196f3;font-weight:700'); showToast('Tetris tests passed');
-    }catch(err){ console.error(err); showToast('Tetris tests failed – see console', 1800); }
-    finally{ boardRef.current=savedBoard; pieceRef.current=savedPiece; draw(); console.groupEnd(); }
-  }
-
   return (
     <main className="two-col">
       <section className="card" style={{alignItems:'center',display:'flex',flexDirection:'column',gap:12}}>
@@ -245,7 +228,7 @@ function Tetris(){
           <button className="btn" onClick={()=>setPlaying(p=>{ showToast(p?'Paused':'Resumed'); return !p; })}>Pause (P)</button>
           <button className="btn" onClick={restart}>Restart (R)</button>
           <button className="btn" onClick={()=>setSoundOn(s=>!s)}>Sound: {soundOn?'On':'Off'}</button>
-          <button className="btn" onClick={tetrisSelfTests}>Self‑Test</button>
+
         </div>
 
         <div className="mobile-pad">
@@ -325,18 +308,6 @@ function Sudoku(){
   }
   function revealOne(){ const sol = solutions[puzzleIndex]; setGrid(prev=>{ const g=prev.map(r=>r.slice()); const {r,c}=selected; if(fixed[r][c]) return g; g[r][c]=Number(sol[r*9+c]); return g; }); showToast('Hint revealed'); }
 
-  function sudokuSelfTests(){
-    try{
-      console.group('%cSudoku Self‑Tests','color:#0f3554;font-weight:700');
-      const g0=strToGrid(puzzles[0]); console.assert(isValid(g0),'Starter puzzle valid');
-      const wrong=strToGrid(puzzles[0]); wrong[0][0]=9; console.assert(!isValid(wrong),'Duplicate invalid');
-      const sol=strToGrid(solutions[0]); console.assert(isValid(sol),'Solution valid');
-      console.assert(gridToStr(sol)===solutions[0],'Solution string matches');
-      console.log('%cAll good!','color:#2196f3;font-weight:700'); showToast('Sudoku tests passed');
-    }catch(err){ console.error(err); showToast('Sudoku tests failed – see console', 1800); }
-    finally{ console.groupEnd(); }
-  }
-
   useEffect(()=>{
     function onKey(e){
       if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Backspace','Delete','Digit0','Numpad0'].includes(e.code) || (/Digit[1-9]|Numpad[1-9]/.test(e.code))){ e.preventDefault?.(); }
@@ -377,7 +348,7 @@ function Sudoku(){
           <button className="btn btnPrimary" onClick={check}>Check</button>
           <button className="btn" onClick={revealOne}>Hint</button>
           <button className="btn" onClick={newPuzzle}>New</button>
-          <button className="btn" onClick={sudokuSelfTests}>Self‑Test</button>
+
         </div>
       </section>
       <aside style={{display:'grid',gap:12}}>
@@ -400,6 +371,7 @@ function Sudoku(){
 
 /* -------------------- MARVEL QUIZ -------------------- */
 function MarvelQuiz(){
+  // Base bank (we'll add new ones and sample 10 randomly per playthrough)
   const QUESTIONS = useMemo(()=>[
     { q: 'Which metal is bonded to Wolverine\'s skeleton?', choices: ['Vibranium','Adamantium','Uru','Carbonadium'], a: 1 },
     { q: 'What is the name of Thor\'s hammer (primary in many stories)?', choices: ['Gungnir','Stormbreaker','Hofund','Mjolnir'], a: 3 },
@@ -411,6 +383,43 @@ function MarvelQuiz(){
     { q: 'What kind of scientist is Bruce Banner primarily?', choices: ['Biochemist','Nuclear physicist','Astrophysicist','Engineer'], a: 1 },
     { q: 'Which city is Daredevil strongly associated with?', choices: ['Gotham','Metropolis','Hell\'s Kitchen','Star City'], a: 2 },
     { q: 'Which team is Logan (Wolverine) most associated with?', choices: ['Avengers','X‑Men','Fantastic Four','Inhumans'], a: 1 },
+    // Added questions
+    { q: 'Doctor Strange\'s Sanctum Sanctorum is in which city?', choices: ['Los Angeles','London','New York City','Miami'], a: 2 },
+    { q: 'What is the name of the Guardians of the Galaxy\'s primary ship (early films)?', choices: ['Benatar','Milano','Razor Crest','Quinjet'], a: 1 },
+    { q: 'What is Ant‑Man\'s civilian name (MCU, primary)?', choices: ['Scott Lang','Hank Pym','Darren Cross','Sam Wilson'], a: 0 },
+    { q: 'Which eye does Nick Fury wear an eyepatch over (most depictions)?', choices: ['Right eye','Left eye'], a: 1 },
+    { q: "What is the real name of Spider-Man?", choices: ["Peter Parker","Bruce Banner","Steve Rogers","Tony Stark"], a: 0 },
+    { q: "What metal is Captain America's shield primarily made from?", choices: ["Vibranium","Adamantium","Uru","Steel"], a: 0 },
+    { q: "Thor wields a hammer called what?", choices: ["Mjolnir","Stormbreaker","Gungnir","Hofund"], a: 0 },
+    { q: "Which city does Spider-Man primarily protect?", choices: ["New York City","Los Angeles","Chicago","London"], a: 0 },
+    { q: "Daredevil primarily protects which New York neighborhood?", choices: ["Hell's Kitchen","Harlem","Queens","Brooklyn"], a: 0 },
+    { q: "Who often leads the Guardians of the Galaxy?", choices: ["Star-Lord","Rocket Raccoon","Gamora","Drax"], a: 0 },
+    { q: "Black Panther rules which fictional African nation?", choices: ["Wakanda","Latveria","Genosha","Sokovia"], a: 0 },
+    { q: "What is the name of Thor's axe crafted after Mjolnir?", choices: ["Stormbreaker","Mjolnir","Jarnbjorn","Gungnir"], a: 0 },
+    { q: "What is the name of Tony Stark's original suit AI?", choices: ["JARVIS","FRIDAY","KAREN","ULTRON"], a: 0 },
+    { q: "Who is T'Challa's sister?", choices: ["Shuri","Okoye","Nakia","Ramonda"], a: 0 },
+    { q: "Nick Fury directs which organization?", choices: ["S.H.I.E.L.D.","HYDRA","AIM","The Hand"], a: 0 },
+    { q: "Thanos seeks which powerful set of artifacts?", choices: ["Infinity Stones","Mother Boxes","Chaos Emeralds","Norn Stones"], a: 0 },
+    { q: "What is the real name of Iron Man?", choices: ["Tony Stark","Steve Rogers","Bruce Banner","Peter Parker"], a: 0 },
+    { q: "Who is the alter ego of Captain America?", choices: ["Steve Rogers","Bucky Barnes","Sam Wilson","Clint Barton"], a: 0 },
+    { q: "What best describes Hulk's abilities?", choices: ["Super strength that increases with rage","Weather manipulation","Magnetism control","Telepathy"], a: 0 },
+    { q: "Whose powers are described as: 'Sorcery and mystic arts'?", choices: ["Doctor Strange","Scarlet Witch","Loki","Vision"], a: 0 },
+    { q: "What is Hawkeye's signature weapon?", choices: ["Bow and arrows","Shield","Hammer","Repulsors"], a: 0 },
+    { q: "Spider-Man's Aunt is named?", choices: ["May Parker","June Parker","Mary Parker","Anna Watson"], a: 0 },
+    { q: "Black Widow's first name is?", choices: ["Natasha","Carol","Wanda","Maria"], a: 0 },
+    { q: "Which of the following is a member of the X-Men?", choices: ["Cyclops","Rocket Raccoon","Black Widow","Loki"], a: 0 },
+    { q: "Who is NOT a member of the Avengers?", choices: ["Magneto","Thor","Hawkeye","Iron Man"], a: 0 },
+    { q: "Which city houses Doctor Strange's Sanctum Sanctorum?", choices: ["New York City","Hong Kong","London","Kamar-Taj"], a: 0 },
+    { q: "What is the real name of Black Panther?", choices: ["T'Challa","M'Baku","Erik Killmonger","Shuri"], a: 0 },
+    { q: "Whose powers are described as: 'Optic blasts'?", choices: ["Cyclops","Storm","Iron Man","Doctor Strange"], a: 0 },
+    { q: "What is the name of Thor's enchanted hammer?", choices: ["Mjolnir","Stormbreaker","Jarnbjorn","Gungnir"], a: 0 },
+    { q: "Who is Loki's brother?", choices: ["Thor","Balder","Heimdall","Hela"], a: 0 },
+    { q: "What best describes Captain Marvel's abilities?", choices: ["Cosmic energy projection and flight","Wall-crawling","Magnetism control","Super-soldier strength"], a: 0 },
+    { q: "Whose powers are described as: 'Weather manipulation'?", choices: ["Storm","Thor","Loki","Scarlet Witch"], a: 0 },
+    { q: "Which fictional African nation is protected by Black Panther?", choices: ["Wakanda","Genosha","Sokovia","Latveria"], a: 0 },
+    { q: "Who often leads the Guardians of the Galaxy?", choices: ["Star-Lord","Gamora","Rocket Raccoon","Drax"], a: 0 },
+    { q: "What is the name of Tony Stark's later AI assistant?", choices: ["FRIDAY","JARVIS","EDITH","KAREN"], a: 0 },
+    { q: "What is Daredevil's real name?", choices: ["Matt Murdock","Frank Castle","Peter Parker","Stephen Strange"], a: 0 },
   ],[]);
 
   const [index, setIndex] = useState(0);
@@ -418,35 +427,31 @@ function MarvelQuiz(){
   const [done, setDone] = useState(false);
   const [usedSkip, setUsedSkip] = useState(false);
   const [reveal, setReveal] = useState(false);
+  const [runKey, setRunKey] = useState(0);
+
+  // shuffle helper
+  const shuffle = (arr) => { const a=arr.slice(); for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; };
+  // choose 10 random questions per run
+  const ACTIVE = useMemo(()=> shuffle(QUESTIONS).slice(0,10), [QUESTIONS, runKey]);
 
   function pick(i){
     if(done) return;
     setReveal(true);
-    const correct = i === QUESTIONS[index].a;
+    const correct = i === ACTIVE[index].a;
     if(correct) { setScore(s=>s+1); showToast('Correct! ✨'); }
     else showToast('Not quite.');
     setTimeout(()=>{
       setReveal(false);
-      if(index+1>=QUESTIONS.length){ setDone(true); showToast('Quiz complete!'); }
+      if(index+1>=ACTIVE.length){ setDone(true); showToast('Quiz complete!'); }
       else setIndex(index+1);
     }, 650);
   }
 
-  function skip(){ if(usedSkip||done) return; setUsedSkip(true); showToast('Skipped ➡️'); setIndex(i=>Math.min(i+1, QUESTIONS.length-1)); }
-  function restart(){ setIndex(0); setScore(0); setDone(false); setUsedSkip(false); setReveal(false); showToast('New Quiz!'); }
+  function skip(){ if(usedSkip||done) return; setUsedSkip(true); showToast('Skipped ➡️'); setIndex(i=>Math.min(i+1, ACTIVE.length-1)); }
+  function restart(){ setRunKey(k=>k+1); setIndex(0); setScore(0); setDone(false); setUsedSkip(false); setReveal(false); showToast('New Quiz!'); }
 
-  function quizTests(){
-    try{
-      console.group('%cMarvel Quiz Self‑Tests','color:#0f3554;font-weight:700');
-      console.assert(Array.isArray(QUESTIONS) && QUESTIONS.length>=5,'Has questions');
-      const first=QUESTIONS[0]; console.assert(first.a>=0 && first.a<first.choices.length,'Answer index in range');
-      console.log('%cAll good!','color:#2196f3;font-weight:700'); showToast('Quiz tests passed');
-    }catch(e){ console.error(e); showToast('Quiz tests failed – see console'); }
-    finally{ console.groupEnd(); }
-  }
-
-  const q = QUESTIONS[index];
-  const progressPct = Math.round(((index) / QUESTIONS.length) * 100);
+  const q = ACTIVE[index];
+  const progressPct = Math.round(((index) / ACTIVE.length) * 100);
 
   return (
     <main className="two-col">
@@ -475,10 +480,9 @@ function MarvelQuiz(){
             <div style={{flex:1,height:8,background:'#e6f3ff',borderRadius:999,overflow:'hidden'}}>
               <div style={{width:progressPct+'%',height:'100%',background:'linear-gradient(90deg,#4fc3f7,#2196f3)'}}/>
             </div>
-            <div style={{opacity:.8,fontWeight:700}}>{index+1} / {QUESTIONS.length}</div>
+            <div style={{opacity:.8,fontWeight:700}}>{index+1} / {ACTIVE.length}</div>
           </div>
           <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
-            <button className="btn" onClick={quizTests}>Self‑Test</button>
             <button className="btn" onClick={restart}>Restart</button>
             <button className="btn btnPrimary" onClick={skip} disabled={usedSkip}>Skip {usedSkip?'✓':''}</button>
           </div>
@@ -487,10 +491,10 @@ function MarvelQuiz(){
       <aside style={{display:'grid',gap:12}}>
         <div className="card">
           <h3 style={sideH3}>Score</h3>
-          <div style={{fontSize:28,fontWeight:900,textAlign:'center'}}>{score} / {QUESTIONS.length}</div>
+          <div style={{fontSize:28,fontWeight:900,textAlign:'center'}}>{score} / {ACTIVE.length}</div>
           {done && (
             <div style={{marginTop:8,textAlign:'center',fontWeight:700}}>
-              {score===QUESTIONS.length? 'Flawless victory! ✨' : score>QUESTIONS.length/2? 'Nice work! 🦸' : 'Good try — play again!'}
+              {score===ACTIVE.length? 'Flawless victory! ✨' : score>ACTIVE.length/2? 'Nice work! 🦸' : 'Good try — play again!'}
             </div>
           )}
         </div>
@@ -499,7 +503,7 @@ function MarvelQuiz(){
           <ul style={{margin:0,paddingLeft:18,lineHeight:1.4}}>
             <li>Pick the best answer. We reveal the correct one briefly.</li>
             <li>Use <b>Skip</b> once per run.</li>
-            <li>Restart anytime to reshuffle your memory.</li>
+            <li>Restart anytime to get a fresh random set of questions.</li>
           </ul>
         </div>
       </aside>
