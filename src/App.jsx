@@ -21,7 +21,7 @@ export default function OhanaArcade() {
       <div className="flex justify-center pt-6">
         <div className="container" style={{ width: '66.6667vw', maxWidth: 1280, minWidth: 640 }}>
           <header className="flex flex-wrap items-center justify-center gap-3 md:gap-4 border-b border-[#cfe9ff] pb-3 mb-4">
-            <h1 className="text-xl md:text-2xl font-bold m-0">Ohana Arcade</h1>
+            <h1 className="text-xl md:text-2xl font-bold m-0">Shria's Arcade</h1>
             <nav className="seg" role="tablist" aria-label="Choose game">
               <button
                 role="tab"
