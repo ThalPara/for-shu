@@ -143,7 +143,7 @@ function Tetris(){
     for (let y = 0; y < N; y++) for (let x = 0; x < M; x++) r[x][N - 1 - y] = m[y][x];
     return r;
   }
-  function collides(p:any, dx=0, dy=0, test:number[][]|null=null){ const sh=test||p.shape; const b=boardRef.current; for(let y=0;y<sh.length;y++){ for(let x=0;x<sh[y].length;x++){ if(!sh[y][x]) continue; const nx=p.x+x+dx, ny=p.y+y+dy; if(nx<0||nx>=COLS||ny>=ROWS) return true; if(ny>=0 && b[ny][nx]) return true; } } return false; }
+  function collides(p, dx=0, dy=0, test=null){ if(!sh[y][x]) continue; const nx=p.x+x+dx, ny=p.y+y+dy; if(nx<0||nx>=COLS||ny>=ROWS) return true; if(ny>=0 && b[ny][nx]) return true; } } return false; }
   function merge(p:any){ const b=boardRef.current; for(let y=0;y<p.shape.length;y++){ for(let x=0;x<p.shape[y].length;x++){ if(p.shape[y][x]){ const ny=p.y+y, nx=p.x+x; if(ny>=0) b[ny][nx]=p.type; } } } }
   function clearLines(){ let c=0; const b=boardRef.current; for(let y=ROWS-1;y>=0;y--){ if(b[y].every(Boolean)){ b.splice(y,1); b.unshift(Array(COLS).fill(null)); c++; y++; } } return c; }
   function roundRectPath(x:number,y:number,w:number,h:number,r:number){ const p=new Path2D(); r=Math.min(r,w/2,h/2); p.moveTo(x+r,y); p.arcTo(x+w,y,x+w,y+h,r); p.arcTo(x+w,y+h,x,y+h,r); p.arcTo(x,y+h,x,y,r); p.arcTo(x,y,x+w,y,r); p.closePath(); return p; }
