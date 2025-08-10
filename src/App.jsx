@@ -1,237 +1,537 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Lilo & Stitch Tetris – Ohana Mode</title>
+  <style>
+    :root {
+      --bg1: #0b1020;
+      --bg2: #1a1f3b;
+      --accent: #6c9cf1;
+      --accent-2: #8a5cff;
+      --pink: #ff7db8;
+      --green: #7ef7d7;
+      --yellow: #ffe27a;
+      --cell: 32px; /* base size; canvas scales with DPR */
+      --shadow: 0 10px 30px rgba(0,0,0,.35);
+    }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial;
+      background: radial-gradient(1200px 800px at 10% 10%, #1b2550, transparent),
+                  radial-gradient(900px 600px at 90% 0%, #311a5a, transparent),
+                  linear-gradient(160deg, var(--bg1), var(--bg2));
+      color: #e8eeff;
+      overflow-x: hidden;
+    }
+    /* twinkling stars */
+    .stars { position: fixed; inset: 0; pointer-events: none; z-index: 0; }
+    .star { position: absolute; width: 2px; height: 2px; background: #fff; opacity: .75; border-radius: 50%; filter: drop-shadow(0 0 6px #9cf); animation: twinkle 3s infinite ease-in-out; }
+    @keyframes twinkle { 0%,100%{opacity:.3} 50%{opacity:1} }
 
-// YouTube Content Studio – single-file React app
-// Videos → (Scripts, Thumbnails, Headlines) with collapsible sections and header actions
+    .wrap { display: grid; grid-template-columns: 1fr minmax(320px, 440px) 1fr; padding: 24px; gap: 24px; }
+    .app { grid-column: 2; backdrop-filter: blur(6px); background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); border-radius: 20px; box-shadow: var(--shadow); overflow: clip; position: relative; z-index: 1; }
 
-const STORAGE_KEY = "yt_content_studio_v7";
-const nowISO = () => new Date().toISOString();
-const fmt = (iso) => new Date(iso).toLocaleString();
-const uid = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
+    header { display: flex; align-items: center; justify-content: space-between; padding: 16px 18px; border-bottom: 1px solid rgba(255,255,255,.08); background: linear-gradient(180deg, rgba(255,255,255,.06), transparent); }
+    .title { display:flex; align-items:center; gap:12px; letter-spacing:.3px; }
+    .badge { font-size: 12px; padding: 4px 10px; border-radius: 999px; background: linear-gradient(90deg, var(--accent), var(--accent-2)); color:#081225; font-weight:700; }
 
-function useLocalStorageArray(key, initial) {
-  const [items, setItems] = useState(() => {
-    if (typeof window === "undefined") return initial;
-    try {
-      const raw = window.localStorage.getItem(key);
-      const parsed = raw ? JSON.parse(raw) : initial;
-      return Array.isArray(parsed) ? parsed : initial;
-    } catch { return initial; }
-  });
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try { window.localStorage.setItem(key, JSON.stringify(items)); } catch {}
-  }, [key, items]);
-  return [items, setItems];
-}
+    main { display: grid; grid-template-columns: 1fr 280px; gap: 18px; padding: 18px; }
+    @media (max-width: 820px) { main { grid-template-columns: 1fr; } }
 
-export default function YouTubeContentStudio(){
-  const [items, setItems] = useLocalStorageArray(STORAGE_KEY, []);
-  const [query, setQuery] = useState("");
-  const [editingItem, setEditingItem] = useState(null);
-  const [toast, setToast] = useState("");
-  const [collapsed, setCollapsed] = useState({}); // video-level collapse
-  const [subCollapsed, setSubCollapsed] = useState({}); // section-level collapse
-  const fileInputRef = useRef(null);
+    .board-wrap { background: rgba(0,0,0,.25); border: 1px solid rgba(255,255,255,.08); border-radius: 16px; padding: 12px; display:flex; flex-direction:column; align-items:center; gap: 12px; }
+    canvas { background: rgba(8,14,34,.8); border-radius: 10px; box-shadow: inset 0 0 0 1px rgba(255,255,255,.06), var(--shadow); }
 
-  const showToast = (msg) => { setToast(msg); setTimeout(()=> setToast(""), 2000); };
+    .side { display: grid; gap: 12px; }
+    .card { background: rgba(0,0,0,.25); border: 1px solid rgba(255,255,255,.08); border-radius: 14px; padding: 12px; box-shadow: var(--shadow); }
+    .card h3 { margin: 0 0 8px 0; font-size: 14px; opacity:.9; letter-spacing:.3px; text-transform: uppercase; }
+    .stats { display:grid; grid-template-columns: repeat(2, 1fr); gap:10px; }
+    .stat { background: rgba(255,255,255,.06); border-radius: 12px; padding: 10px; text-align:center; }
+    .stat .v { font-size: 22px; font-weight: 800; }
 
-  const createBase = (type, parentId=null) => ({ id: uid(), type, parentId, title: "", content: "", tags: [], status: "idea", createdAt: nowISO(), updatedAt: nowISO() });
-  const createVideo = () => {
-    const v = { ...createBase("video"), title: "New Video" };
-    setItems(prev => [v, ...prev]);
-    setCollapsed(prev => ({ ...prev, [v.id]: false }));
-    showToast("Video created");
-  };
-  const createChild = (videoId, type) => {
-    let base = createBase(type, videoId);
-    if (type === "headline") base.content = "Punchy headline idea";
-    if (type === "script") base.title = "Script";
-    if (type === "thumbnail") base.title = "Thumbnail";
-    setItems(prev => [base, ...prev]);
-    showToast(`${type[0].toUpperCase()+type.slice(1)} added`);
-  };
-  const upsertItem = (item) => setItems(prev => prev.map(p => p.id === item.id ? {...item, updatedAt: nowISO()} : p));
-  const removeItem = (id) => { setItems(prev => prev.filter(p => p.id !== id && p.parentId !== id)); showToast("Deleted"); };
+    .controls { display:flex; flex-wrap: wrap; gap: 8px; }
+    button { cursor: pointer; background: #101737; color:#e8eeff; border: 1px solid rgba(255,255,255,.12); border-radius: 999px; padding: 10px 14px; font-weight: 700; letter-spacing:.3px; transition: transform .08s ease, background .2s ease; }
+    button:hover { transform: translateY(-1px); background: #17204b; }
+    .primary { background: linear-gradient(90deg, var(--accent), var(--accent-2)); color:#081225; border: none; }
 
-  const exportJson = () => {
-    const blob = new Blob([JSON.stringify(items, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url; a.download = `yt-studio-${new Date().toISOString().slice(0,10)}.json`; a.click();
-    URL.revokeObjectURL(url);
-    showToast("Exported JSON");
-  };
+    .next { display:grid; grid-template-columns: repeat(5, 20px); grid-auto-rows: 20px; gap: 3px; justify-content: start; background: rgba(8,14,34,.8); padding: 10px; border-radius: 10px; box-shadow: inset 0 0 0 1px rgba(255,255,255,.06); }
+    .next div { width: 20px; height: 20px; border-radius: 4px; }
 
-  const onImport = (file) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      try { const data = JSON.parse(String(reader.result)); if (Array.isArray(data)) { setItems(data); showToast("Imported JSON"); } else showToast("Invalid JSON"); }
-      catch { showToast("Invalid JSON"); }
-    };
-    reader.readAsText(file);
-  };
+    .quote { min-height: 72px; background: rgba(255,255,255,.06); border-radius: 12px; padding: 10px; display:flex; align-items:center; justify-content:center; text-align:center; font-weight: 700; line-height:1.3; }
 
-  const saveEdit = () => { if (editingItem) { upsertItem(editingItem); setEditingItem(null); showToast("Saved"); } };
+    /* on-screen mobile pad */
+    .pad { display:grid; grid-template-columns: repeat(3, 64px); grid-auto-rows: 64px; gap:10px; justify-content:center; margin-top: 8px; }
+    .pad button { border-radius: 16px; }
 
-  const videos = useMemo(() => items.filter(i => i.type === "video" && (i.title.toLowerCase().includes(query.toLowerCase()) || query === "")), [items, query]);
-  const childrenOf = (videoId) => items.filter(i => i.parentId === videoId);
+    /* toast */
+    .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: rgba(0,0,0,.75); border: 1px solid rgba(255,255,255,.2); padding: 12px 16px; border-radius: 12px; box-shadow: var(--shadow); opacity:0; pointer-events:none; transition: opacity .25s ease, transform .25s ease; z-index: 5; }
+    .toast.show { opacity:1; transform: translateX(-50%) translateY(-6px); }
 
-  const css = `
-    :root{--bg:#0b1020;--text:#e5e7eb;--muted:#9aa7bd;--panel:#10172a;--panel2:#0f1326;--stroke:#1f2937;--stroke2:#243049;--brand:#6d95ff}
-    *{box-sizing:border-box}body{margin:0}
-    .app{min-height:100vh;background:radial-gradient(1200px 600px at -10% -10%, #1f2a44 0%, transparent 60%), radial-gradient(900px 500px at 110% -10%, #0b3b5e33 0%, transparent 60%), var(--bg); color:var(--text);font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial}
-    .header{position:sticky;top:0;background:#0b1020cc;backdrop-filter:blur(8px);border-bottom:1px solid var(--stroke);z-index:10}
-    .header-inner{max-width:1100px;margin:0 auto;padding:14px 20px;display:flex;gap:10px;align-items:center}
-    .input{background:var(--panel2);border:1px solid var(--stroke2);color:var(--text);padding:10px 12px;border-radius:12px;outline:none;min-width:240px}
-    .input:focus{border-color:var(--brand);box-shadow:0 0 0 3px #6d95ff33}
-    .btn{border:1px solid var(--stroke2);background:var(--panel);color:var(--text);padding:8px 10px;border-radius:10px;cursor:pointer;display:inline-flex;align-items:center;gap:.4rem}
-    .btn:hover{border-color:var(--brand)}
-    .btn.primary{background:linear-gradient(180deg,#6d95ff,#5a7ee6);border-color:#5a7ee6}
-    .toolbar{display:flex;gap:8px;align-items:center;margin-left:auto}
-    .container{max-width:1100px;margin:0 auto;padding:20px}
-    .grid{display:grid;gap:16px;grid-template-columns:1fr}
-    .card{background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--stroke);border-radius:16px;overflow:hidden;box-shadow:0 8px 26px #0006}
-    .card-h{padding:12px 14px;background:#0f172a;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--stroke)}
-    .card-content{padding:14px}
-    .meta{display:flex;gap:6px;flex-wrap:wrap;align-items:center;justify-content:flex-end;color:var(--muted);font-size:.9rem}
-    .pill{font-size:.8rem;padding:3px 8px;border-radius:999px;background:#0c1a35;border:1px solid var(--stroke2)}
-    .rows{display:flex;flex-direction:column;gap:8px;margin-top:8px}
-    .row{display:flex;justify-content:space-between;align-items:center;padding:10px;border:1px solid var(--stroke2);border-radius:12px;background:var(--panel2)}
-    .footer{padding:10px 14px;border-top:1px solid var(--stroke);display:flex;justify-content:space-between;color:var(--muted);font-size:.85rem}
-    .toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:#111827;border:1px solid var(--stroke2);color:var(--text);padding:8px 12px;border-radius:10px}
-    .modal{position:fixed;inset:0;background:#0007;display:flex;align-items:center;justify-content:center;padding:20px}
-    .modal-card{width:min(560px,90vw);background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--stroke);border-radius:14px;overflow:hidden}
-    .modal-h{padding:12px 14px;border-bottom:1px solid var(--stroke);font-weight:800}
-    .modal-b{padding:14px;display:grid;gap:10px}
-    .field input,.field textarea,.field select{width:100%;background:#0b1224;border:1px solid var(--stroke2);color:var(--text);padding:10px 12px;border-radius:10px}
-    .sectionHead{background:#0b1224;border:1px solid var(--stroke2);border-radius:10px;padding:10px 12px;display:flex;align-items:center;justify-content:space-between;margin-top:10px}
-  `;
-
-  return (
-    <div className="app">
-      <style>{css}</style>
-
-      <div className="header">
-        <div className="header-inner">
-          <div style={{fontWeight:800}}>📺 YouTube Content Studio</div>
-          <input className="input" placeholder="Search videos…" value={query} onChange={(e)=> setQuery(e.target.value)} />
-          <div className="toolbar">
-            <button className="btn" onClick={()=> fileInputRef.current?.click()}>📥 Import</button>
-            <button className="btn" onClick={exportJson}>📤 Export</button>
-            <button className="btn primary" onClick={createVideo}>➕ New Video</button>
-            <input ref={fileInputRef} type="file" accept="application/json" style={{display:'none'}} onChange={(e)=>{ const f=e.target.files?.[0]; if(f) onImport(f); e.currentTarget.value=""; }} />
+    footer { text-align:center; padding: 8px 16px 16px; opacity:.8; }
+    a { color: var(--green); text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="stars" id="stars"></div>
+  <div class="wrap">
+    <div class="app">
+      <header>
+        <div class="title">
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M12 2l2.5 3.5L19 7l-2.5 3.5L15 14l-3 1-3-1-1.5-3.5L5 7l4.5-1.5L12 2z" fill="url(#g)"/><defs><linearGradient id="g" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse"><stop stop-color="#6c9cf1"/><stop offset="1" stop-color="#8a5cff"/></linearGradient></defs></svg>
+          <div>
+            <div style="font-size:18px;font-weight:900;">Ohana Tetris</div>
+            <div style="font-size:12px;opacity:.8">Fill lines to unlock a Lilo & Stitch quote</div>
           </div>
         </div>
-      </div>
+        <div class="badge">Space-Borne Edition</div>
+      </header>
 
-      <div className="container">
-        {videos.length ? (
-          <div className="grid">
-            {videos.map(v => {
-              const kids = childrenOf(v.id);
-              const scripts = kids.filter(k=>k.type==='script');
-              const thumbs = kids.filter(k=>k.type==='thumbnail');
-              const heads = kids.filter(k=>k.type==='headline');
-              const isCollapsed = collapsed[v.id];
-
-              const Section = ({label, data, type}) => {
-                const subId = `${v.id}:${label}`;
-                const subIsCollapsed = subCollapsed[subId] ?? false; // default open
-                return (
-                  <div>
-                    <div className="sectionHead" onClick={()=> setSubCollapsed(prev=>({ ...prev, [subId]: !subIsCollapsed }))}>
-                      <span style={{display:'flex',alignItems:'center',gap:8}}>{subIsCollapsed ? '▸' : '▾'} {label} <span className="pill">{data.length}</span></span>
-                      <span style={{display:'flex',alignItems:'center',gap:8}}>
-                        {type==='script' && (
-                          <button className="btn" onClick={(e)=>{ e.stopPropagation(); createChild(v.id,'script'); }}>➕ New</button>
-                        )}
-                        {type==='thumbnail' && (
-                          <button className="btn" onClick={(e)=>{ e.stopPropagation(); createChild(v.id,'thumbnail'); }}>➕ Add</button>
-                        )}
-                        {type==='headline' && (
-                          <button className="btn" onClick={(e)=>{ e.stopPropagation(); createChild(v.id,'headline'); }}>➕ Add</button>
-                        )}
-                      </span>
-                    </div>
-                    {!subIsCollapsed && (
-                      <div className="rows">
-                        {data.length ? data.map(item => (
-                          <div key={item.id} className="row">
-                            <div>{item.type==='script'?'📝':item.type==='thumbnail'?'🖼️':'💬'} {item.title || 'Untitled'}</div>
-                            <div className="meta">
-                              <span className="pill">{item.status}</span>
-                              <button className="btn" onClick={()=> setEditingItem(item)}>✏️ Edit</button>
-                              <button className="btn" onClick={()=> removeItem(item.id)}>🗑️ Delete</button>
-                            </div>
-                          </div>
-                        )) : <div className="row" style={{justifyContent:'center',color:'var(--muted)'}}>Empty</div>}
-                      </div>
-                    )}
-                  </div>
-                );
-              };
-
-              return (
-                <div key={v.id} className="card">
-                  <div className="card-h" onClick={()=> setCollapsed(prev=> ({...prev, [v.id]: !isCollapsed}))}>
-                    <div style={{fontWeight:700}}>🎬 {v.title || 'Untitled Video'}</div>
-                    <div className="meta">
-                      <span className="pill">{scripts.length} Scripts</span>
-                      <span className="pill">{thumbs.length} Thumbs</span>
-                      <span className="pill">{heads.length} Headlines</span>
-                      <span>{isCollapsed ? '▸' : '▾'}</span>
-                    </div>
-                  </div>
-
-                  {!isCollapsed && (
-                    <div className="card-content">
-                      <div className="meta" style={{marginBottom:10}}>
-                        <button className="btn" onClick={()=> setEditingItem(v)}>✏️ Edit</button>
-                        <button className="btn" onClick={()=> removeItem(v.id)}>🗑️ Delete</button>
-                      </div>
-                      <Section label="Scripts" data={scripts} type="script" />
-                      <Section label="Thumbnails" data={thumbs} type="thumbnail" />
-                      <Section label="Headlines" data={heads} type="headline" />
-                      <div className="footer">
-                        <span>Updated {fmt(v.updatedAt || v.createdAt)}</span>
-                        <span>ID: {v.id.slice(-6)}</span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+      <main>
+        <section class="board-wrap">
+          <canvas id="board" width="320" height="640" aria-label="Tetris board"></canvas>
+          <div class="controls">
+            <button id="btn-start" class="primary">Start</button>
+            <button id="btn-pause">Pause (P)</button>
+            <button id="btn-restart">Restart (R)</button>
+            <button id="btn-mute">Sound: On</button>
+            <button id="btn-test" title="Run basic self-tests">Self‑Test</button>
           </div>
-        ) : (
-          <div style={{border:'1px dashed var(--stroke2)',padding:24,borderRadius:12,color:'var(--muted)',textAlign:'center'}}>No videos yet. Click <b>➕ New Video</b> to start a project.</div>
-        )}
-      </div>
 
-      {toast && <div className="toast">{toast}</div>}
+          <div class="pad" aria-label="Touch controls">
+            <button id="left">◀</button>
+            <button id="rotate">⟳</button>
+            <button id="right">▶</button>
+            <button id="soft">▼</button>
+            <button id="drop" class="primary" style="grid-column: span 3;">HARD DROP (Space)</button>
+          </div>
+        </section>
 
-      {editingItem && (
-        <div className="modal" onClick={(e)=>{ if(e.target===e.currentTarget) setEditingItem(null); }}>
-          <div className="modal-card">
-            <div className="modal-h">Edit {editingItem.type}</div>
-            <div className="modal-b">
-              <div className="field"><input type="text" value={editingItem.title} onChange={(e)=> setEditingItem({...editingItem, title: e.target.value})} placeholder="Title" /></div>
-              <div className="field">
-                <select value={editingItem.status} onChange={(e)=> setEditingItem({...editingItem, status: e.target.value})}>
-                  <option value="idea">idea</option>
-                  <option value="draft">draft</option>
-                  <option value="final">final</option>
-                </select>
-              </div>
-              <div className="field"><input type="text" value={(editingItem.tags||[]).join(", ")} onChange={(e)=> setEditingItem({...editingItem, tags: e.target.value.split(",").map(s=>s.trim()).filter(Boolean)})} placeholder="tags, comma, separated" /></div>
-              <div className="field"><textarea rows={6} value={editingItem.content} onChange={(e)=> setEditingItem({...editingItem, content: e.target.value})} placeholder={editingItem.type==='headline' ? 'Headline text' : 'Notes / Script content'} /></div>
-            </div>
-            <div className="modal-b" style={{display:'flex',justifyContent:'flex-end',gap:8}}>
-              <button className="btn" onClick={()=> setEditingItem(null)}>Cancel</button>
-              <button className="btn primary" onClick={saveEdit}>Save</button>
+        <aside class="side">
+          <div class="card">
+            <h3>Stats</h3>
+            <div class="stats">
+              <div class="stat"><div>Score</div><div class="v" id="score">0</div></div>
+              <div class="stat"><div>Level</div><div class="v" id="level">1</div></div>
+              <div class="stat"><div>Lines</div><div class="v" id="lines">0</div></div>
+              <div class="stat"><div>Best</div><div class="v" id="best">0</div></div>
             </div>
           </div>
-        </div>
-      )}
+          <div class="card">
+            <h3>Next</h3>
+            <div class="next" id="next"></div>
+          </div>
+          <div class="card">
+            <h3>Ohana Quote</h3>
+            <div class="quote" id="quote">Fill a line to hear from Lilo & Stitch 💫</div>
+          </div>
+        </aside>
+      </main>
+
+      <footer>
+        Controls: ← → to move, ↑ rotate, ↓ soft drop, Space hard drop, P pause. Theme inspired by Lilo & Stitch. “Ohana means family.”
+      </footer>
     </div>
-  );
-}
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    // --- Star field background ---
+    (function makeStars(){
+      const cont = document.getElementById('stars');
+      const n = 120;
+      for(let i=0;i<n;i++){
+        const d=document.createElement('div');
+        d.className='star';
+        d.style.left = Math.random()*100 + '%';
+        d.style.top = Math.random()*100 + '%';
+        d.style.animationDelay = (Math.random()*3)+'s';
+        d.style.opacity = (0.2 + Math.random()*0.8).toFixed(2);
+        cont.appendChild(d);
+      }
+    })();
+
+    // --- Audio (simple bleep) ---
+    const audioCtx = (typeof window !== 'undefined') ? new (window.AudioContext || window.webkitAudioContext)() : null;
+    let soundEnabled = true;
+    function beep(freq=600, dur=0.06){
+      if(!soundEnabled || !audioCtx) return;
+      const o = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      o.type = 'sine'; o.frequency.value = freq; o.connect(g); g.connect(audioCtx.destination);
+      g.gain.setValueAtTime(0.0001, audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.2, audioCtx.currentTime + 0.01);
+      o.start(); o.stop(audioCtx.currentTime + dur);
+      o.onended = () => g.disconnect();
+    }
+
+    // --- Tetris core ---
+    const COLS = 10, ROWS = 20;
+    const cellPx = 32; // logical size, we'll scale for DPR
+    const canvas = document.getElementById('board');
+    const ctx = canvas.getContext('2d');
+
+    // handle DPR crispness
+    const DPR = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+    function resizeCanvas(){
+      canvas.width = COLS * cellPx * DPR;
+      canvas.height = ROWS * cellPx * DPR;
+      canvas.style.width = (COLS * cellPx) + 'px';
+      canvas.style.height = (ROWS * cellPx) + 'px';
+      ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+      // IMPORTANT: don't draw here; board may not be ready yet.
+    }
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+
+    const COLORS = {
+      I: '#6c9cf1', J: '#8a5cff', L: '#ff7db8', O: '#ffe27a', S: '#7ef7d7', T: '#b18cff', Z: '#5be1ff'
+    };
+    const SHAPES = {
+      I: [ [0,0,0,0], [1,1,1,1], [0,0,0,0], [0,0,0,0] ],
+      J: [ [1,0,0], [1,1,1], [0,0,0] ],
+      L: [ [0,0,1], [1,1,1], [0,0,0] ],
+      O: [ [1,1], [1,1] ],
+      S: [ [0,1,1], [1,1,0], [0,0,0] ],
+      T: [ [0,1,0], [1,1,1], [0,0,0] ],
+      Z: [ [1,1,0], [0,1,1], [0,0,0] ],
+    };
+    const TYPES = Object.keys(SHAPES);
+
+    function emptyBoard(){ return Array.from({length: ROWS}, () => Array(COLS).fill(null)); }
+
+    // Initialize board BEFORE any draw attempts
+    let board = emptyBoard();
+    let bag = [];
+    function nextType(){
+      if(bag.length === 0){ bag = [...TYPES].sort(()=>Math.random()-0.5); }
+      return bag.pop();
+    }
+
+    function createPiece(type){
+      const shape = SHAPES[type].map(r => r.slice());
+      return { type, shape, x: Math.floor((COLS - shape[0].length)/2), y: -1 };
+    }
+
+    let piece = createPiece(nextType());
+    let nextPiece = createPiece(nextType());
+
+    function rotate(matrix){
+      const N = matrix.length;
+      const M = matrix[0].length;
+      const res = Array.from({length: M}, () => Array(N).fill(0));
+      for(let y=0;y<N;y++) for(let x=0;x<M;x++) res[x][N-1-y] = matrix[y][x];
+      return res;
+    }
+
+    function collides(p, offX=0, offY=0, testShape=null){
+      const sh = testShape || p.shape;
+      for(let y=0;y<sh.length;y++){
+        for(let x=0;x<sh[y].length;x++){
+          if(!sh[y][x]) continue;
+          const nx = p.x + x + offX;
+          const ny = p.y + y + offY;
+          if(nx < 0 || nx >= COLS || ny >= ROWS) return true;
+          if(ny >= 0 && board[ny][nx]) return true;
+        }
+      }
+      return false;
+    }
+
+    function merge(p){
+      for(let y=0;y<p.shape.length;y++){
+        for(let x=0;x<p.shape[y].length;x++){
+          if(p.shape[y][x]){
+            const ny = p.y + y; const nx = p.x + x;
+            if(ny >= 0) board[ny][nx] = p.type;
+          }
+        }
+      }
+    }
+
+    function clearLines(){
+      let cleared = 0;
+      for(let y=ROWS-1;y>=0;y--){
+        if(board[y].every(Boolean)){
+          board.splice(y,1);
+          board.unshift(Array(COLS).fill(null));
+          cleared++; y++;
+        }
+      }
+      return cleared;
+    }
+
+    function roundRect(ctx, x, y, w, h, r){
+      const p = new Path2D();
+      r = Math.min(r, w/2, h/2);
+      p.moveTo(x+r, y);
+      p.arcTo(x+w, y, x+w, y+h, r);
+      p.arcTo(x+w, y+h, x, y+h, r);
+      p.arcTo(x, y+h, x, y, r);
+      p.arcTo(x, y, x+w, y, r);
+      p.closePath();
+      return p;
+    }
+
+    function drawCell(x,y,type,ghost=false){
+      const px = x*cellPx, py = y*cellPx;
+      const color = COLORS[type] || '#9cf';
+      ctx.fillStyle = color;
+      ctx.globalAlpha = ghost ? 0.25 : 1;
+      const r = 6; // rounded
+      // FIX: Path2D doesn't have .fill(); use ctx.fill(path)
+      const basePath = roundRect(ctx, px+1, py+1, cellPx-2, cellPx-2, r);
+      ctx.fill(basePath);
+      // glossy highlight
+      ctx.globalAlpha = ghost ? 0.18 : 0.4;
+      ctx.fillStyle = '#ffffff';
+      const glossPath = roundRect(ctx, px+4, py+4, cellPx-8, (cellPx-8)/3, r);
+      ctx.fill(glossPath);
+      ctx.globalAlpha = 1;
+    }
+
+    function draw(){
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      // board
+      for(let y=0;y<ROWS;y++){
+        for(let x=0;x<COLS;x++){
+          if(board[y][x]) drawCell(x,y,board[y][x]);
+          else {
+            ctx.globalAlpha = .05; ctx.fillStyle = '#fff'; ctx.fillRect(x*cellPx+1, y*cellPx+1, cellPx-2, cellPx-2); ctx.globalAlpha = 1;
+          }
+        }
+      }
+      // ghost
+      let gy = piece.y; while(!collides(piece, 0, (gy-piece.y)+1)) gy++; // find landing row
+      for(let y=0;y<piece.shape.length;y++) for(let x=0;x<piece.shape[y].length;x++) if(piece.shape[y][x] && gy+y>=0) drawCell(piece.x+x, gy+y, piece.type, true);
+      // piece
+      for(let y=0;y<piece.shape.length;y++){
+        for(let x=0;x<piece.shape[y].length;x++){
+          if(piece.shape[y][x] && piece.y+y>=0) drawCell(piece.x+x, piece.y+y, piece.type);
+        }
+      }
+    }
+
+    // --- Game state ---
+    let dropInterval = 800; // ms
+    let lastDrop = 0;
+    let playing = false;
+    let score = 0, level = 1, lines = 0;
+    const bestKey = 'ohana-tetris-best';
+    document.getElementById('best').textContent = localStorage.getItem(bestKey) || 0;
+
+    function updateStats(){
+      document.getElementById('score').textContent = score;
+      document.getElementById('level').textContent = level;
+      document.getElementById('lines').textContent = lines;
+      const best = Math.max(Number(localStorage.getItem(bestKey)||0), score);
+      localStorage.setItem(bestKey, best);
+      document.getElementById('best').textContent = best;
+    }
+
+    function newPiece(){ piece = nextPiece; nextPiece = createPiece(nextType()); renderNext(); }
+
+    function renderNext(){
+      const n = document.getElementById('next');
+      n.innerHTML = '';
+      // clear grid
+      for(let i=0;i<25;i++){ const d=document.createElement('div'); d.style.background='transparent'; n.appendChild(d); }
+      // draw next piece centered-ish in 5x5
+      const sh = nextPiece.shape; const offX = Math.floor((5 - sh[0].length)/2); const offY = Math.floor((5 - sh.length)/2);
+      [...n.children].forEach((cell, idx)=>{
+        const gx = idx % 5, gy = Math.floor(idx/5);
+        const sx = gx - offX, sy = gy - offY;
+        const on = sh[sy] && sh[sy][sx];
+        if(on){ cell.style.background = COLORS[nextPiece.type]; cell.style.opacity = .95; }
+      });
+    }
+
+    function softDrop(){ if(!collides(piece,0,1)){ piece.y++; } else lockPiece(); draw(); }
+
+    function hardDrop(){
+      let moved = 0;
+      while(!collides(piece,0,1)){ piece.y++; moved++; }
+      score += 2*moved; // reward
+      lockPiece();
+      draw();
+    }
+
+    function lockPiece(){
+      merge(piece); beep(420, .05);
+      const c = clearLines();
+      if(c>0){
+        const gains = [0,100,300,500,800][c] || c*300; // Tetris-ish
+        score += gains * level; lines += c; maybeLevelUp(); updateStats();
+        showQuoteToast();
+        beep(660, .07); setTimeout(()=>beep(880, .07), 70);
+      }
+      newPiece();
+      if(collides(piece,0,0)){
+        playing = false; showToast('Game Over – Press Restart', 2000); beep(160, .2);
+      }
+    }
+
+    function maybeLevelUp(){
+      const nextLevelAt = level*10; // every 10 lines
+      if(lines >= nextLevelAt){ level++; dropInterval = Math.max(120, dropInterval - 90); showToast('Level Up! '+level); }
+    }
+
+    function gameLoop(ts){
+      if(!playing){ requestAnimationFrame(gameLoop); return; }
+      if(!lastDrop) lastDrop = ts;
+      const dt = ts - lastDrop;
+      if(dt >= dropInterval){ softDrop(); lastDrop = ts; }
+      draw();
+      requestAnimationFrame(gameLoop);
+    }
+    requestAnimationFrame(gameLoop);
+
+    // --- Input ---
+    function tryMove(dx, dy){ if(!collides(piece,dx,dy)){ piece.x += dx; piece.y += dy; draw(); beep(520, .03);} }
+    function tryRotate(){
+      const r = rotate(piece.shape);
+      if(!collides(piece,0,0,r)){ piece.shape = r; draw(); beep(700, .03); return; }
+      // wall kicks (simple)
+      if(!collides(piece,-1,0,r)){ piece.x -= 1; piece.shape = r; draw(); beep(700, .03); return; }
+      if(!collides(piece,1,0,r)){ piece.x += 1; piece.shape = r; draw(); beep(700, .03); return; }
+    }
+
+    document.addEventListener('keydown', (e)=>{
+      if(e.repeat) return;
+      if(['ArrowLeft','ArrowRight','ArrowDown','ArrowUp','Space','KeyP','KeyR','KeyT'].includes(e.code)) e.preventDefault();
+      switch(e.code){
+        case 'ArrowLeft': tryMove(-1,0); break;
+        case 'ArrowRight': tryMove(1,0); break;
+        case 'ArrowDown': tryMove(0,1); break;
+        case 'ArrowUp': tryRotate(); break;
+        case 'Space': hardDrop(); break;
+        case 'KeyP': togglePause(); break;
+        case 'KeyR': restart(); break;
+        case 'KeyT': runSelfTests(); break; // quick dev shortcut
+      }
+    });
+
+    // touch controls
+    const qs = id => document.getElementById(id);
+    qs('left').onclick = ()=>tryMove(-1,0);
+    qs('right').onclick = ()=>tryMove(1,0);
+    qs('soft').onclick = ()=>tryMove(0,1);
+    qs('rotate').onclick = ()=>tryRotate();
+    qs('drop').onclick = ()=>hardDrop();
+
+    // buttons
+    document.getElementById('btn-start').onclick = ()=>{ if(!playing){ playing = true; lastDrop = 0; showToast('Game Start!'); audioCtx && audioCtx.resume && audioCtx.resume(); } };
+    document.getElementById('btn-pause').onclick = ()=>togglePause();
+    document.getElementById('btn-restart').onclick = ()=>restart();
+    document.getElementById('btn-mute').onclick = (e)=>{ soundEnabled = !soundEnabled; e.target.textContent = 'Sound: ' + (soundEnabled? 'On':'Off'); };
+    document.getElementById('btn-test').onclick = ()=>runSelfTests();
+
+    function togglePause(){ playing = !playing; showToast(playing? 'Resumed' : 'Paused'); }
+    function restart(){ board = emptyBoard(); score=0; lines=0; level=1; dropInterval=800; bag=[]; piece=createPiece(nextType()); nextPiece=createPiece(nextType()); renderNext(); updateStats(); draw(); playing=true; lastDrop=0; showToast('New Game – Good luck!'); }
+
+    // --- Quotes ---
+    const quotes = [
+      'Ohana means family. Family means nobody gets left behind or forgotten.',
+      'I like you. You be my friend?',
+      'Aloha! 🌺',
+      'This is my family. It’s little, and broken, but still good. Yeah, still good.',
+      'Blue punch buggy! No punch back!',
+      'You can be happy with me.',
+      'Stitch understands. Stitch is good. 🍪',
+      'Family is your superpower.',
+      'We’re a good team, you and me.',
+      'If you want to leave, you can. I’ll remember you though. I remember everyone that leaves.'
+    ];
+
+    function showQuoteToast(){
+      const q = quotes[Math.floor(Math.random()*quotes.length)];
+      document.getElementById('quote').textContent = q;
+      showToast('★ Ohana Quote Unlocked!');
+    }
+
+    // --- Toast ---
+    const toast = document.getElementById('toast');
+    let toastTimer;
+    function showToast(msg, ms=1200){
+      toast.textContent = msg;
+      toast.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(()=> toast.classList.remove('show'), ms);
+    }
+
+    // --- Basic self-tests (console) ---
+    function runSelfTests(){
+      const savedBoard = board;
+      const savedPiece = { type: piece.type, shape: piece.shape.map(r=>r.slice()), x: piece.x, y: piece.y };
+      const savedScore = score;
+      try {
+        let tBoard = emptyBoard();
+        board = tBoard; // use test board for isolated checks
+
+        console.group('%cOhana Tetris – Self Tests','color:#7ef7d7;font-weight:700');
+
+        // Test: board shape
+        console.assert(Array.isArray(board) && board.length === ROWS && board.every(r=>Array.isArray(r) && r.length===COLS), 'Board should be ROWS x COLS');
+
+        // Test: collision in empty board should be false
+        let tp = createPiece('O');
+        tp.x = 4; tp.y = -1; // entering from top
+        console.assert(!collides(tp,0,0), 'Piece should not collide in empty board at spawn');
+
+        // Test: wall collision
+        let leftWall = createPiece('I');
+        leftWall.x = -1; leftWall.y = 0;
+        console.assert(collides(leftWall,0,0), 'Piece at x=-1 should collide with wall');
+
+        // Test: floor collision
+        let floorTest = createPiece('O');
+        floorTest.x = 4; floorTest.y = ROWS - 2; // O is 2 tall
+        console.assert(collides(floorTest,0,1) === true, 'Piece one step below bottom should collide');
+
+        // Test: merge then clear line (1 line)
+        board[ROWS-1] = Array(COLS).fill('I');
+        let cleared = clearLines();
+        console.assert(cleared === 1, 'Exactly one line should be cleared');
+        console.assert(board[0].every(v=>v===null), 'Top row should be empty after clear');
+
+        // Test: multi-line clear (2 lines)
+        board[ROWS-1] = Array(COLS).fill('L');
+        board[ROWS-2] = Array(COLS).fill('J');
+        cleared = clearLines();
+        console.assert(cleared === 2, 'Exactly two lines should be cleared');
+
+        // Test: rotation keeps block count
+        const t = createPiece('T');
+        const count = (m)=>m.reduce((a,r)=>a+r.reduce((aa,v)=>aa+(v?1:0),0),0);
+        const before = count(t.shape);
+        const after = count(rotate(t.shape));
+        console.assert(before === after, 'Rotation should preserve number of blocks');
+
+        // Test: Path2D fill smoke test (drawCell should not throw)
+        let threw = false; try { drawCell(0,0,'I'); } catch(e){ threw = true; }
+        console.assert(threw === false, 'drawCell should not throw (Path2D fill)');
+
+        // Test: next preview grid size
+        const next = document.getElementById('next');
+        console.assert(next.children.length === 25, 'Next preview should have 25 cells');
+
+        console.log('%cAll tests passed!','color:#6c9cf1;font-weight:700');
+        showToast('Self‑tests passed! Check console');
+      } catch(err){
+        console.error('Self‑tests failed:', err);
+        showToast('Self‑tests failed – see console', 1800);
+      } finally {
+        board = savedBoard;
+        piece = savedPiece;
+        score = savedScore;
+        draw();
+      }
+      console.groupEnd();
+    }
+
+    // initial draw AFTER board has been initialized
+    draw(); renderNext(); updateStats();
+  </script>
+</body>
+</html>
