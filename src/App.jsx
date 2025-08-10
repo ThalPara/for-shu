@@ -220,7 +220,7 @@ function Tetris(){
     resize(); window.addEventListener('resize', resize);
     // init pieces
     boardRef.current=emptyBoard(); bagRef.current=[]; pieceRef.current=createPiece(nextType()); nextPieceRef.current=createPiece(nextType()); renderNext(); draw();
-    let raf: number; function loop(ts){ if(!playing){ raf=requestAnimationFrame(loop); return; } if(!lastDropRef.current) lastDropRef.current=ts; const dt=ts-lastDropRef.current; if(dt>=dropIntervalRef.current){ softDrop(); lastDropRef.current=ts; } draw(); raf=requestAnimationFrame(loop);} raf=requestAnimationFrame(loop);
+    let raf; function loop(ts){ if(!playing){ raf=requestAnimationFrame(loop); return; } if(!lastDropRef.current) lastDropRef.current=ts; const dt=ts-lastDropRef.current; if(dt>=dropIntervalRef.current){ softDrop(); lastDropRef.current=ts; } draw(); raf=requestAnimationFrame(loop);} raf=requestAnimationFrame(loop);
     return ()=>{ cancelAnimationFrame(raf); window.removeEventListener('resize', resize); };
   },[playing]);
 
@@ -345,7 +345,7 @@ function Sudoku(){
           {grid.map((row,r)=>row.map((v,c)=>{
             const isSel = selected.r===r && selected.c===c;
             const isFixed = fixed[r][c];
-            const cellStyle: React.CSSProperties = {
+            const cellStyle = {
               userSelect:'none', cursor:isFixed?'not-allowed':'pointer',
               display:'flex',alignItems:'center',justifyContent:'center',
               height:'auto', aspectRatio:'1 / 1', borderRadius:8, fontWeight:800,
