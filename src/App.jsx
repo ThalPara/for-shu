@@ -89,10 +89,11 @@ function Stars(){
 function Toast(){
   return <div id="toast" className="toast" role="status" aria-live="polite"/>;
 }
-function showToast(msg: string, ms=1200){
-  const el: any = document.getElementById('toast'); if(!el) return;
-  el.textContent=msg; el.classList.add('show');
-  clearTimeout(el._t); el._t=setTimeout(()=>el.classList.remove('show'), ms);
+
+function showToast(msg, ms = 1200) {
+  const el = document.getElementById('toast'); if(!el) return;
+  el.textContent = msg; el.classList.add('show');
+  clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('show'), ms);
 }
 
 /* -------------------- TETRIS -------------------- */
