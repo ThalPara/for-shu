@@ -2,18 +2,18 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 
 /**
  * Ohana Arcade – Single‑file React App
- * Games: Tetris (Lilo & Stitch quotes) + Sudoku
+ * Games: Tetris (Lilo & Stitch quotes) + Sudoku + Marvel Quiz
  * - Responsive layout (2/3 width on desktop, single column on mobile)
  * - Mobile Tetris touch controls
  * - Path2D fill fix for rounded cells
- * - Self‑tests for both games
+ * - Self‑tests for all games
  */
 
 export default function OhanaArcade() {
-  const [game, setGame] = useState('tetris'); // 'tetris' | 'sudoku'
+  const [game, setGame] = useState('tetris'); // 'tetris' | 'sudoku' | 'marvel'
   return (
     <div className="min-h-screen text-[#e8eeff]" style={{
-      background: 'radial-gradient(1200px 800px at 10% 10%, #cfe2f3, transparent), radial-gradient(900px 600px at 90% 0%, #8d5ce5, transparent), linear-gradient(160deg, #9fc5e8, #3d85c6)'
+      background: 'radial-gradient(1200px 800px at 10% 10%, #1b2550, transparent), radial-gradient(900px 600px at 90% 0%, #311a5a, transparent), linear-gradient(160deg, #0b1020, #1a1f3b)'
     }}>
       <BaseStyles />
       <Stars />
@@ -41,14 +41,24 @@ export default function OhanaArcade() {
                 <span className="seg-ico" aria-hidden>🧩</span>
                 <span className="seg-label">Sudoku</span>
               </button>
+              <button
+                role="tab"
+                aria-selected={game === 'marvel'}
+                className={`seg-btn ${game === 'marvel' ? 'is-active' : ''}`}
+                onClick={() => setGame('marvel')}
+              >
+                <span className="seg-ico" aria-hidden>🦸‍♂️</span>
+                <span className="seg-label">Marvel Quiz</span>
+              </button>
             </nav>
           </header>
 
-          {game === 'tetris' ? <Tetris /> : <Sudoku />}
+          {game === 'tetris' ? <Tetris /> : game === 'sudoku' ? <Sudoku /> : <MarvelQuiz />}
 
           <footer className="text-center px-4 pb-6 opacity-80">
             Tetris: ← → move, ↑ rotate, ↓ soft drop, Space hard drop, P pause, R restart. &nbsp;|
-            &nbsp;Sudoku: tap a cell then 1–9 (or use the pad). 0/Backspace to erase; arrows to move.
+            &nbsp;Sudoku: tap a cell then 1–9 (or use the pad). 0/Backspace to erase; arrows to move. |
+            &nbsp;Marvel Quiz: pick an answer, use Skip, aim for a perfect score.
           </footer>
         </div>
       </div>
@@ -110,8 +120,7 @@ function Toast(){
 }
 function showToast(msg, ms=1200){
   const el = document.getElementById('toast'); if(!el) return;
-  // store timeout id on element
-  // @ts-ignore
+  // @ts-ignore store timeout id on element
   const old = el._t; if(old) clearTimeout(old);
   el.textContent=msg; el.classList.add('show');
   // @ts-ignore
@@ -187,7 +196,6 @@ function Tetris(){
     const canvas=canvasRef.current; const ctx=canvas?.getContext('2d'); if(!canvas||!ctx) return; ctxRef.current=ctx;
     const DPR=Math.max(1, Math.min(2, window.devicePixelRatio||1));
     function resize(){
-      // Scale CSS size to viewport while keeping device‑pixel crispness
       const maxCssW = COLS * cellPx;
       const targetCssW = Math.min(maxCssW, Math.floor(window.innerWidth * 0.95));
       const cssH = Math.floor(targetCssW * (ROWS / COLS));
@@ -198,13 +206,11 @@ function Tetris(){
       ctx.setTransform(DPR,0,0,DPR,0,0);
     }
     resize(); window.addEventListener('resize', resize);
-    // init pieces
     boardRef.current=emptyBoard(); bagRef.current=[]; pieceRef.current=createPiece(nextType()); nextPieceRef.current=createPiece(nextType()); renderNext(); draw();
     let raf; function loop(ts){ if(!playing){ raf=requestAnimationFrame(loop); return; } if(!lastDropRef.current) lastDropRef.current=ts; const dt=ts-lastDropRef.current; if(dt>=dropIntervalRef.current){ softDrop(); lastDropRef.current=ts; } draw(); raf=requestAnimationFrame(loop);} raf=requestAnimationFrame(loop);
     return ()=>{ cancelAnimationFrame(raf); window.removeEventListener('resize', resize); };
   },[playing]);
 
-  // Stable keyboard listener
   useEffect(()=>{
     const kb=(e)=>{ if(e.repeat) return; if(['ArrowLeft','ArrowRight','ArrowDown','ArrowUp','Space','KeyP','KeyR'].includes(e.code)) e.preventDefault(); switch(e.code){ case 'ArrowLeft': if(!collides(pieceRef.current,-1,0)){ pieceRef.current.x-=1; draw(); } break; case 'ArrowRight': if(!collides(pieceRef.current,1,0)){ pieceRef.current.x+=1; draw(); } break; case 'ArrowDown': softDrop(); break; case 'ArrowUp': { const r=rotate(pieceRef.current.shape); if(!collides(pieceRef.current,0,0,r)){ pieceRef.current.shape=r; draw(); break;} if(!collides(pieceRef.current,-1,0,r)){ pieceRef.current.x-=1; pieceRef.current.shape=r; draw(); break;} if(!collides(pieceRef.current,1,0,r)){ pieceRef.current.x+=1; pieceRef.current.shape=r; draw(); break;} break;} case 'Space': hardDrop(); break; case 'KeyP': setPlaying(p=>{ showToast(p?'Paused':'Resumed'); return !p;}); break; case 'KeyR': restart(); break; }};
     window.addEventListener('keydown', kb);
@@ -213,7 +219,6 @@ function Tetris(){
 
   function restart(){ boardRef.current=emptyBoard(); bagRef.current=[]; pieceRef.current=createPiece(nextType()); nextPieceRef.current=createPiece(nextType()); setScore(0); setLevel(1); setLines(0); dropIntervalRef.current=800; lastDropRef.current=0; renderNext(); draw(); setPlaying(true); showToast('New Game – Good luck!'); }
 
-  // Self‑tests (non‑destructive)
   function tetrisSelfTests(){
     const savedBoard=boardRef.current.map(r=>r.slice()); const savedPiece=JSON.parse(JSON.stringify(pieceRef.current));
     try{
@@ -244,7 +249,6 @@ function Tetris(){
           <button className="btn" onClick={tetrisSelfTests}>Self‑Test</button>
         </div>
 
-        {/* Mobile touch pad */}
         <div className="mobile-pad">
           <button className="btn" onClick={()=>{ if(!collides(pieceRef.current,-1,0)){ pieceRef.current.x--; draw(); } }}>◀</button>
           <button className="btn" onClick={()=>{ const r=rotate(pieceRef.current.shape); if(!collides(pieceRef.current,0,0,r)){ pieceRef.current.shape=r; draw(); return;} if(!collides(pieceRef.current,-1,0,r)){ pieceRef.current.x--; pieceRef.current.shape=r; draw(); return;} if(!collides(pieceRef.current,1,0,r)){ pieceRef.current.x++; pieceRef.current.shape=r; draw(); return;} }}>⟳</button>
@@ -282,13 +286,9 @@ const sideH3 = {margin:'0 0 8px 0',fontSize:14,opacity:.9,letterSpacing:'.3px',t
 
 /* -------------------- SUDOKU -------------------- */
 function Sudoku(){
-  // 0 = empty
   const puzzles = useMemo(()=>[
-    // Easy
     '530070000600195000098000060800060003400803001700020006060000280000419005000080079',
-    // Medium
     '000260701680070090190004500820100040004602900050003028009300074040050036703018000',
-    // Hard
     '300000000005009000200504000000700090000000000040003000000201004000800100000000006'
   ],[]);
   const solutions = useMemo(()=>[
@@ -308,11 +308,8 @@ function Sudoku(){
   function gridToStr(g){ return g.flat().join(''); }
 
   function isValid(g){
-    // rows
     for(let r=0;r<9;r++){ const seen=new Set(); for(let c=0;c<9;c++){ const v=g[r][c]; if(v===0) continue; if(seen.has(v)) return false; seen.add(v);} }
-    // cols
     for(let c=0;c<9;c++){ const seen=new Set(); for(let r=0;r<9;r++){ const v=g[r][c]; if(v===0) continue; if(seen.has(v)) return false; seen.add(v);} }
-    // boxes
     for(let br=0;br<3;br++) for(let bc=0;bc<3;bc++){ const seen=new Set(); for(let r=0;r<3;r++) for(let c=0;c<3;c++){ const v=g[br*3+r][bc*3+c]; if(v===0) continue; if(seen.has(v)) return false; seen.add(v);} }
     return true;
   }
@@ -329,7 +326,6 @@ function Sudoku(){
   }
   function revealOne(){ const sol = solutions[puzzleIndex]; setGrid(prev=>{ const g=prev.map(r=>r.slice()); const {r,c}=selected; if(fixed[r][c]) return g; g[r][c]=Number(sol[r*9+c]); return g; }); showToast('Hint revealed'); }
 
-  // Self‑tests for Sudoku
   function sudokuSelfTests(){
     try{
       console.group('%cSudoku Self‑Tests','color:#7ef7d7;font-weight:700');
@@ -342,7 +338,6 @@ function Sudoku(){
     finally{ console.groupEnd(); }
   }
 
-  // Stable keyboard listener
   useEffect(()=>{
     function onKey(e){
       if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Backspace','Delete','Digit0','Numpad0'].includes(e.code) || (/Digit[1-9]|Numpad[1-9]/.test(e.code))){ e.preventDefault?.(); }
@@ -376,7 +371,6 @@ function Sudoku(){
             );
           }))}
         </div>
-        {/* Numpad */}
         <div className="mobile-pad" style={{gridTemplateColumns:'repeat(5, minmax(56px, 1fr))'}}>
           {[1,2,3,4,5,6,7,8,9].map(n=> <button key={n} className="btn" onClick={()=>setNumber(n)}>{n}</button>)}
           <button className="btn" onClick={clearCell}>Erase</button>
@@ -398,6 +392,115 @@ function Sudoku(){
         <div className="card">
           <h3 style={sideH3}>Shortcuts</h3>
           <div>Arrows move selection. 0 / Backspace / Delete to erase.</div>
+        </div>
+      </aside>
+    </main>
+  );
+}
+
+/* -------------------- MARVEL QUIZ -------------------- */
+function MarvelQuiz(){
+  const QUESTIONS = useMemo(()=>[
+    { q: 'Which metal is bonded to Wolverine\'s skeleton?', choices: ['Vibranium','Adamantium','Uru','Carbonadium'], a: 1 },
+    { q: 'What is the name of Thor\'s hammer (primary in many stories)?', choices: ['Gungnir','Stormbreaker','Hofund','Mjolnir'], a: 3 },
+    { q: 'T\'Challa is the king of which nation?', choices: ['Genosha','Wakanda','Latveria','Sokovia'], a: 1 },
+    { q: 'Which Infinity Stone controls time?', choices: ['Blue','Green','Red','Purple'], a: 1 },
+    { q: 'Natasha Romanoff is also known as…', choices: ['Black Widow','Scarlet Witch','Wasp','Gamora'], a: 0 },
+    { q: 'Peter Parker works as a photographer for which newspaper (classic canon)?', choices: ['Daily Planet','Daily Bugle','The Post','Clarion'], a: 1 },
+    { q: 'Which hero famously says “I can do this all day”?', choices: ['Iron Man','Captain America','Hawkeye','Star-Lord'], a: 1 },
+    { q: 'What kind of scientist is Bruce Banner primarily?', choices: ['Biochemist','Nuclear physicist','Astrophysicist','Engineer'], a: 1 },
+    { q: 'Which city is Daredevil strongly associated with?', choices: ['Gotham','Metropolis','Hell\'s Kitchen','Star City'], a: 2 },
+    { q: 'Which team is Logan (Wolverine) most associated with?', choices: ['Avengers','X‑Men','Fantastic Four','Inhumans'], a: 1 },
+  ],[]);
+
+  const [index, setIndex] = useState(0);
+  const [score, setScore] = useState(0);
+  const [done, setDone] = useState(false);
+  const [usedSkip, setUsedSkip] = useState(false);
+  const [reveal, setReveal] = useState(false);
+
+  function pick(i){
+    if(done) return;
+    setReveal(true);
+    const correct = i === QUESTIONS[index].a;
+    if(correct) { setScore(s=>s+1); showToast('Correct! ✨'); }
+    else showToast('Not quite.');
+    setTimeout(()=>{
+      setReveal(false);
+      if(index+1>=QUESTIONS.length){ setDone(true); showToast('Quiz complete!'); }
+      else setIndex(index+1);
+    }, 650);
+  }
+
+  function skip(){ if(usedSkip||done) return; setUsedSkip(true); showToast('Skipped ➡️'); setIndex(i=>Math.min(i+1, QUESTIONS.length-1)); }
+  function restart(){ setIndex(0); setScore(0); setDone(false); setUsedSkip(false); setReveal(false); showToast('New Quiz!'); }
+
+  function quizTests(){
+    try{
+      console.group('%cMarvel Quiz Self‑Tests','color:#7ef7d7;font-weight:700');
+      console.assert(Array.isArray(QUESTIONS) && QUESTIONS.length>=5,'Has questions');
+      const first=QUESTIONS[0]; console.assert(first.a>=0 && first.a<first.choices.length,'Answer index in range');
+      console.log('%cAll good!','color:#6c9cf1;font-weight:700'); showToast('Quiz tests passed');
+    }catch(e){ console.error(e); showToast('Quiz tests failed – see console'); }
+    finally{ console.groupEnd(); }
+  }
+
+  const q = QUESTIONS[index];
+  const progressPct = Math.round(((index) / QUESTIONS.length) * 100);
+
+  return (
+    <main className="two-col">
+      <section className="card" style={{display:'grid',gap:12}}>
+        <h3 style={sideH3}>Marvel Quiz</h3>
+        <div className="card" style={{padding:16}}>
+          <div style={{fontSize:18,fontWeight:800,marginBottom:8,lineHeight:1.3}}>{q.q}</div>
+          <div style={{display:'grid',gap:10}}>
+            {q.choices.map((c,i)=>{
+              const isCorrect = i===q.a;
+              const show = reveal;
+              const bg = show ? (isCorrect? 'linear-gradient(90deg,#6c9cf1,#8a5cff)' : 'rgba(255,255,255,.06)') : 'rgba(255,255,255,.06)';
+              const color = show && isCorrect ? '#081225' : '#e8eeff';
+              const border = show ? (isCorrect? 'transparent' : 'rgba(255,255,255,.08)') : 'rgba(255,255,255,.08)';
+              return (
+                <button key={i} className="btn" style={{textAlign:'left',justifyContent:'flex-start',background:bg,color, borderColor:border}} onClick={()=>pick(i)} disabled={done}>
+                  {c}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="card" style={{display:'grid',gap:10}}>
+          <div style={{display:'flex',alignItems:'center',gap:10}}>
+            <div style={{flex:1,height:8,background:'rgba(255,255,255,.08)',borderRadius:999,overflow:'hidden'}}>
+              <div style={{width:progressPct+'%',height:'100%',background:'linear-gradient(90deg,#6c9cf1,#8a5cff)'}}/>
+            </div>
+            <div style={{opacity:.8,fontWeight:700}}>{index+1} / {QUESTIONS.length}</div>
+          </div>
+          <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
+            <button className="btn" onClick={quizTests}>Self‑Test</button>
+            <button className="btn" onClick={restart}>Restart</button>
+            <button className="btn btnPrimary" onClick={skip} disabled={usedSkip}>Skip {usedSkip?'✓':''}</button>
+          </div>
+        </div>
+      </section>
+      <aside style={{display:'grid',gap:12}}>
+        <div className="card">
+          <h3 style={sideH3}>Score</h3>
+          <div style={{fontSize:28,fontWeight:900,textAlign:'center'}}>{score} / {QUESTIONS.length}</div>
+          {done && (
+            <div style={{marginTop:8,textAlign:'center',fontWeight:700}}>
+              {score===QUESTIONS.length? 'Flawless victory! ✨' : score>QUESTIONS.length/2? 'Nice work! 🦸' : 'Good try — play again!'}
+            </div>
+          )}
+        </div>
+        <div className="card">
+          <h3 style={sideH3}>Tips</h3>
+          <ul style={{margin:0,paddingLeft:18,lineHeight:1.4}}>
+            <li>Pick the best answer. We reveal the correct one briefly.</li>
+            <li>Use <b>Skip</b> once per run.</li>
+            <li>Restart anytime to reshuffle your memory.</li>
+          </ul>
         </div>
       </aside>
     </main>
