@@ -200,7 +200,11 @@ function Tetris(){
   function lockPiece(){ merge(pieceRef.current); beep(420,.05); const c=clearLines(); if(c>0){ const gains=[0,100,300,500,800][c]||c*300; setScore(s=>s+gains*level); setLines(ln=>{ const nl=ln+c; maybeLevelUp(nl, level); return nl;}); setBest(b=>{ const nb=Math.max(b, score); localStorage.setItem('ohana-tetris-best', String(nb)); return Math.max(b, score);}); showQuote(); beep(660,.07); setTimeout(()=>beep(880,.07),70);} newPiece(); if(collides(pieceRef.current,0,0)){ setPlaying(false); showToast('Game Over – Press Restart', 2000); beep(160,.2);} }
 
   useEffect(()=>{
-    const canvas=canvasRef.current!; const ctx=canvas.getContext('2d')!; ctxRef.current=ctx;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctxRef.current = ctx;
     const DPR=Math.max(1, Math.min(2, window.devicePixelRatio||1));
     function resize(){
       // Keep device-pixel crispness but scale CSS size to viewport so it fits on phones
