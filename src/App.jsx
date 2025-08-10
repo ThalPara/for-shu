@@ -168,7 +168,8 @@ function Tetris(){
     const a = audioCtxRef.current;
     // ... rest of the function
   }
-  function renderNext(){ const n=nextRef.current!; n.innerHTML=''; for(let i=0;i<25;i++){ const d=document.createElement('div'); d.style.width='20px'; d.style.height='20px'; d.style.borderRadius='4px'; d.style.background='transparent'; n.appendChild(d);} const sh=nextPieceRef.current.shape; const offX=Math.floor((5-sh[0].length)/2), offY=Math.floor((5-sh.length)/2); [...n.children].forEach((cell: any,idx)=>{ const gx=idx%5, gy=Math.floor(idx/5); const sx=gx-offX, sy=gy-offY; const on=sh[sy]&&sh[sy][sx]; if(on){ cell.style.background=(COLORS as any)[nextPieceRef.current.type]; cell.style.opacity=.95; } }); }
+  function renderNext(){ const n = nextRef.current;
+if (!n) return; n.innerHTML=''; for(let i=0;i<25;i++){ const d=document.createElement('div'); d.style.width='20px'; d.style.height='20px'; d.style.borderRadius='4px'; d.style.background='transparent'; n.appendChild(d);} const sh=nextPieceRef.current.shape; const offX=Math.floor((5-sh[0].length)/2), offY=Math.floor((5-sh.length)/2); [...n.children].forEach((cell: any,idx)=>{ const gx=idx%5, gy=Math.floor(idx/5); const sx=gx-offX, sy=gy-offY; const on=sh[sy]&&sh[sy][sx]; if(on){ cell.style.background=(COLORS as any)[nextPieceRef.current.type]; cell.style.opacity=.95; } }); }
   function showQuote(){ const q=[
     'Ohana means family. Family means nobody gets left behind or forgotten.',
     'I like you. You be my friend?',
