@@ -139,7 +139,7 @@ function Tetris(){
   const [best, setBest] = useState(Number(typeof window!=='undefined' ? (localStorage.getItem('ohana-tetris-best')||0) : 0));
   const [quote, setQuote] = useState('Fill a line to hear from Lilo & Stitch 💫');
 
-  const COLS=10, ROWS=20, cellPx=32;
+  const COLS=10, ROWS=15, cellPx=32;
   const COLORS = useMemo(()=>({ I:'#4fc3f7', J:'#64b5f6', L:'#90caf9', O:'#ffd54f', S:'#81d4fa', T:'#42a5f5', Z:'#29b6f6' }),[]);
   const SHAPES = useMemo(()=>({
     I:[[0,0,0,0],[1,1,1,1],[0,0,0,0],[0,0,0,0]],
