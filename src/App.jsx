@@ -327,14 +327,20 @@ function Sudoku(){
           {grid.map((row,r)=>row.map((v,c)=>{
             const isSel = selected.r===r && selected.c===c;
             const isFixed = fixed[r][c];
+            const thick = '2px solid #90caf9';
             const cellStyle = {
               userSelect:'none', cursor:isFixed?'not-allowed':'pointer',
               display:'flex',alignItems:'center',justifyContent:'center',
               height:'auto', aspectRatio:'1 / 1', borderRadius:8, fontWeight:800,
               background: isSel? '#e3f2ff' : '#f3f8ff',
               border: '1px solid #e1efff',
+              // Outline 3×3 subgrids with thicker borders
+              borderTop: (r % 3 === 0) ? thick : undefined,
+              borderLeft: (c % 3 === 0) ? thick : undefined,
+              borderRight: (c % 3 === 2 || c === 8) ? thick : undefined,
+              borderBottom: (r % 3 === 2 || r === 8) ? thick : undefined,
               color: '#0f3554'
-            };
+            } as React.CSSProperties;
             return (
               <div key={`${r}-${c}`} style={cellStyle} onClick={()=>setSelected({r,c})}>
                 <span style={{opacity:isFixed?1:.95,color:isFixed?'#ffb300':'#0f3554'}}>{v||''}</span>
@@ -371,56 +377,55 @@ function Sudoku(){
 
 /* -------------------- MARVEL QUIZ -------------------- */
 function MarvelQuiz(){
-  // Base bank (we'll add new ones and sample 10 randomly per playthrough)
   const QUESTIONS = useMemo(()=>[
-    { q: 'Which metal is bonded to Wolverine\'s skeleton?', choices: ['Vibranium','Adamantium','Uru','Carbonadium'], a: 1 },
-    { q: 'What is the name of Thor\'s hammer (primary in many stories)?', choices: ['Gungnir','Stormbreaker','Hofund','Mjolnir'], a: 3 },
-    { q: 'T\'Challa is the king of which nation?', choices: ['Genosha','Wakanda','Latveria','Sokovia'], a: 1 },
-    { q: 'Which Infinity Stone controls time?', choices: ['Blue','Green','Red','Purple'], a: 1 },
-    { q: 'Natasha Romanoff is also known as…', choices: ['Black Widow','Scarlet Witch','Wasp','Gamora'], a: 0 },
-    { q: 'Peter Parker works as a photographer for which newspaper (classic canon)?', choices: ['Daily Planet','Daily Bugle','The Post','Clarion'], a: 1 },
-    { q: 'Which hero famously says “I can do this all day”?', choices: ['Iron Man','Captain America','Hawkeye','Star-Lord'], a: 1 },
-    { q: 'What kind of scientist is Bruce Banner primarily?', choices: ['Biochemist','Nuclear physicist','Astrophysicist','Engineer'], a: 1 },
-    { q: 'Which city is Daredevil strongly associated with?', choices: ['Gotham','Metropolis','Hell\'s Kitchen','Star City'], a: 2 },
-    { q: 'Which team is Logan (Wolverine) most associated with?', choices: ['Avengers','X‑Men','Fantastic Four','Inhumans'], a: 1 },
-    // Added questions
-    { q: 'Doctor Strange\'s Sanctum Sanctorum is in which city?', choices: ['Los Angeles','London','New York City','Miami'], a: 2 },
-    { q: 'What is the name of the Guardians of the Galaxy\'s primary ship (early films)?', choices: ['Benatar','Milano','Razor Crest','Quinjet'], a: 1 },
-    { q: 'What is Ant‑Man\'s civilian name (MCU, primary)?', choices: ['Scott Lang','Hank Pym','Darren Cross','Sam Wilson'], a: 0 },
-    { q: 'Which eye does Nick Fury wear an eyepatch over (most depictions)?', choices: ['Right eye','Left eye'], a: 1 },
-    { q: "What is the real name of Spider-Man?", choices: ["Peter Parker","Bruce Banner","Steve Rogers","Tony Stark"], a: 0 },
-    { q: "What metal is Captain America's shield primarily made from?", choices: ["Vibranium","Adamantium","Uru","Steel"], a: 0 },
-    { q: "Thor wields a hammer called what?", choices: ["Mjolnir","Stormbreaker","Gungnir","Hofund"], a: 0 },
-    { q: "Which city does Spider-Man primarily protect?", choices: ["New York City","Los Angeles","Chicago","London"], a: 0 },
-    { q: "Daredevil primarily protects which New York neighborhood?", choices: ["Hell's Kitchen","Harlem","Queens","Brooklyn"], a: 0 },
-    { q: "Who often leads the Guardians of the Galaxy?", choices: ["Star-Lord","Rocket Raccoon","Gamora","Drax"], a: 0 },
-    { q: "Black Panther rules which fictional African nation?", choices: ["Wakanda","Latveria","Genosha","Sokovia"], a: 0 },
-    { q: "What is the name of Thor's axe crafted after Mjolnir?", choices: ["Stormbreaker","Mjolnir","Jarnbjorn","Gungnir"], a: 0 },
-    { q: "What is the name of Tony Stark's original suit AI?", choices: ["JARVIS","FRIDAY","KAREN","ULTRON"], a: 0 },
-    { q: "Who is T'Challa's sister?", choices: ["Shuri","Okoye","Nakia","Ramonda"], a: 0 },
-    { q: "Nick Fury directs which organization?", choices: ["S.H.I.E.L.D.","HYDRA","AIM","The Hand"], a: 0 },
-    { q: "Thanos seeks which powerful set of artifacts?", choices: ["Infinity Stones","Mother Boxes","Chaos Emeralds","Norn Stones"], a: 0 },
-    { q: "What is the real name of Iron Man?", choices: ["Tony Stark","Steve Rogers","Bruce Banner","Peter Parker"], a: 0 },
-    { q: "Who is the alter ego of Captain America?", choices: ["Steve Rogers","Bucky Barnes","Sam Wilson","Clint Barton"], a: 0 },
-    { q: "What best describes Hulk's abilities?", choices: ["Super strength that increases with rage","Weather manipulation","Magnetism control","Telepathy"], a: 0 },
-    { q: "Whose powers are described as: 'Sorcery and mystic arts'?", choices: ["Doctor Strange","Scarlet Witch","Loki","Vision"], a: 0 },
-    { q: "What is Hawkeye's signature weapon?", choices: ["Bow and arrows","Shield","Hammer","Repulsors"], a: 0 },
-    { q: "Spider-Man's Aunt is named?", choices: ["May Parker","June Parker","Mary Parker","Anna Watson"], a: 0 },
-    { q: "Black Widow's first name is?", choices: ["Natasha","Carol","Wanda","Maria"], a: 0 },
-    { q: "Which of the following is a member of the X-Men?", choices: ["Cyclops","Rocket Raccoon","Black Widow","Loki"], a: 0 },
-    { q: "Who is NOT a member of the Avengers?", choices: ["Magneto","Thor","Hawkeye","Iron Man"], a: 0 },
-    { q: "Which city houses Doctor Strange's Sanctum Sanctorum?", choices: ["New York City","Hong Kong","London","Kamar-Taj"], a: 0 },
-    { q: "What is the real name of Black Panther?", choices: ["T'Challa","M'Baku","Erik Killmonger","Shuri"], a: 0 },
-    { q: "Whose powers are described as: 'Optic blasts'?", choices: ["Cyclops","Storm","Iron Man","Doctor Strange"], a: 0 },
-    { q: "What is the name of Thor's enchanted hammer?", choices: ["Mjolnir","Stormbreaker","Jarnbjorn","Gungnir"], a: 0 },
-    { q: "Who is Loki's brother?", choices: ["Thor","Balder","Heimdall","Hela"], a: 0 },
-    { q: "What best describes Captain Marvel's abilities?", choices: ["Cosmic energy projection and flight","Wall-crawling","Magnetism control","Super-soldier strength"], a: 0 },
-    { q: "Whose powers are described as: 'Weather manipulation'?", choices: ["Storm","Thor","Loki","Scarlet Witch"], a: 0 },
-    { q: "Which fictional African nation is protected by Black Panther?", choices: ["Wakanda","Genosha","Sokovia","Latveria"], a: 0 },
-    { q: "Who often leads the Guardians of the Galaxy?", choices: ["Star-Lord","Gamora","Rocket Raccoon","Drax"], a: 0 },
-    { q: "What is the name of Tony Stark's later AI assistant?", choices: ["FRIDAY","JARVIS","EDITH","KAREN"], a: 0 },
-    { q: "What is Daredevil's real name?", choices: ["Matt Murdock","Frank Castle","Peter Parker","Stephen Strange"], a: 0 },
-  ],[]);
+      { q: 'Which metal is bonded to Wolverine\'s skeleton?', choices: ['Vibranium','Adamantium','Uru','Carbonadium'], a: 1 },
+      { q: 'What is the name of Thor\'s hammer (primary in many stories)?', choices: ['Gungnir','Stormbreaker','Hofund','Mjolnir'], a: 3 },
+      { q: 'T\'Challa is the king of which nation?', choices: ['Genosha','Wakanda','Latveria','Sokovia'], a: 1 },
+      { q: 'Which Infinity Stone controls time?', choices: ['Blue','Green','Red','Purple'], a: 1 },
+      { q: 'Natasha Romanoff is also known as…', choices: ['Black Widow','Scarlet Witch','Wasp','Gamora'], a: 0 },
+      { q: 'Peter Parker works as a photographer for which newspaper (classic canon)?', choices: ['Daily Planet','Daily Bugle','The Post','Clarion'], a: 1 },
+      { q: 'Which hero famously says “I can do this all day”?', choices: ['Iron Man','Captain America','Hawkeye','Star-Lord'], a: 1 },
+      { q: 'What kind of scientist is Bruce Banner primarily?', choices: ['Biochemist','Nuclear physicist','Astrophysicist','Engineer'], a: 1 },
+      { q: 'Which city is Daredevil strongly associated with?', choices: ['Gotham','Metropolis','Hell\'s Kitchen','Star City'], a: 2 },
+      { q: 'Which team is Logan (Wolverine) most associated with?', choices: ['Avengers','X‑Men','Fantastic Four','Inhumans'], a: 1 },
+      // Added questions
+      { q: 'Doctor Strange\'s Sanctum Sanctorum is in which city?', choices: ['Los Angeles','London','New York City','Miami'], a: 2 },
+      { q: 'What is the name of the Guardians of the Galaxy\'s primary ship (early films)?', choices: ['Benatar','Milano','Razor Crest','Quinjet'], a: 1 },
+      { q: 'What is Ant‑Man\'s civilian name (MCU, primary)?', choices: ['Scott Lang','Hank Pym','Darren Cross','Sam Wilson'], a: 0 },
+      { q: 'Which eye does Nick Fury wear an eyepatch over (most depictions)?', choices: ['Right eye','Left eye'], a: 1 },
+      { q: "What is the real name of Spider-Man?", choices: ["Peter Parker","Bruce Banner","Steve Rogers","Tony Stark"], a: 0 },
+      { q: "What metal is Captain America's shield primarily made from?", choices: ["Vibranium","Adamantium","Uru","Steel"], a: 0 },
+      { q: "Thor wields a hammer called what?", choices: ["Mjolnir","Stormbreaker","Gungnir","Hofund"], a: 0 },
+      { q: "Which city does Spider-Man primarily protect?", choices: ["New York City","Los Angeles","Chicago","London"], a: 0 },
+      { q: "Daredevil primarily protects which New York neighborhood?", choices: ["Hell's Kitchen","Harlem","Queens","Brooklyn"], a: 0 },
+      { q: "Who often leads the Guardians of the Galaxy?", choices: ["Star-Lord","Rocket Raccoon","Gamora","Drax"], a: 0 },
+      { q: "Black Panther rules which fictional African nation?", choices: ["Wakanda","Latveria","Genosha","Sokovia"], a: 0 },
+      { q: "What is the name of Thor's axe crafted after Mjolnir?", choices: ["Stormbreaker","Mjolnir","Jarnbjorn","Gungnir"], a: 0 },
+      { q: "What is the name of Tony Stark's original suit AI?", choices: ["JARVIS","FRIDAY","KAREN","ULTRON"], a: 0 },
+      { q: "Who is T'Challa's sister?", choices: ["Shuri","Okoye","Nakia","Ramonda"], a: 0 },
+      { q: "Nick Fury directs which organization?", choices: ["S.H.I.E.L.D.","HYDRA","AIM","The Hand"], a: 0 },
+      { q: "Thanos seeks which powerful set of artifacts?", choices: ["Infinity Stones","Mother Boxes","Chaos Emeralds","Norn Stones"], a: 0 },
+      { q: "What is the real name of Iron Man?", choices: ["Tony Stark","Steve Rogers","Bruce Banner","Peter Parker"], a: 0 },
+      { q: "Who is the alter ego of Captain America?", choices: ["Steve Rogers","Bucky Barnes","Sam Wilson","Clint Barton"], a: 0 },
+      { q: "What best describes Hulk's abilities?", choices: ["Super strength that increases with rage","Weather manipulation","Magnetism control","Telepathy"], a: 0 },
+      { q: "Whose powers are described as: 'Sorcery and mystic arts'?", choices: ["Doctor Strange","Scarlet Witch","Loki","Vision"], a: 0 },
+      { q: "What is Hawkeye's signature weapon?", choices: ["Bow and arrows","Shield","Hammer","Repulsors"], a: 0 },
+      { q: "Spider-Man's Aunt is named?", choices: ["May Parker","June Parker","Mary Parker","Anna Watson"], a: 0 },
+      { q: "Black Widow's first name is?", choices: ["Natasha","Carol","Wanda","Maria"], a: 0 },
+      { q: "Which of the following is a member of the X-Men?", choices: ["Cyclops","Rocket Raccoon","Black Widow","Loki"], a: 0 },
+      { q: "Who is NOT a member of the Avengers?", choices: ["Magneto","Thor","Hawkeye","Iron Man"], a: 0 },
+      { q: "Which city houses Doctor Strange's Sanctum Sanctorum?", choices: ["New York City","Hong Kong","London","Kamar-Taj"], a: 0 },
+      { q: "What is the real name of Black Panther?", choices: ["T'Challa","M'Baku","Erik Killmonger","Shuri"], a: 0 },
+      { q: "Whose powers are described as: 'Optic blasts'?", choices: ["Cyclops","Storm","Iron Man","Doctor Strange"], a: 0 },
+      { q: "What is the name of Thor's enchanted hammer?", choices: ["Mjolnir","Stormbreaker","Jarnbjorn","Gungnir"], a: 0 },
+      { q: "Who is Loki's brother?", choices: ["Thor","Balder","Heimdall","Hela"], a: 0 },
+      { q: "What best describes Captain Marvel's abilities?", choices: ["Cosmic energy projection and flight","Wall-crawling","Magnetism control","Super-soldier strength"], a: 0 },
+      { q: "Whose powers are described as: 'Weather manipulation'?", choices: ["Storm","Thor","Loki","Scarlet Witch"], a: 0 },
+      { q: "Which fictional African nation is protected by Black Panther?", choices: ["Wakanda","Genosha","Sokovia","Latveria"], a: 0 },
+      { q: "Who often leads the Guardians of the Galaxy?", choices: ["Star-Lord","Gamora","Rocket Raccoon","Drax"], a: 0 },
+      { q: "What is the name of Tony Stark's later AI assistant?", choices: ["FRIDAY","JARVIS","EDITH","KAREN"], a: 0 },
+      { q: "What is Daredevil's real name?", choices: ["Matt Murdock","Frank Castle","Peter Parker","Stephen Strange"], a: 0 },
+    ],[]);
 
   const [index, setIndex] = useState(0);
   const [score, setScore] = useState(0);
