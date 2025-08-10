@@ -31,8 +31,23 @@
     .star { position: absolute; width: 2px; height: 2px; background: #fff; opacity: .75; border-radius: 50%; filter: drop-shadow(0 0 6px #9cf); animation: twinkle 3s infinite ease-in-out; }
     @keyframes twinkle { 0%,100%{opacity:.3} 50%{opacity:1} }
 
-    .wrap { display: grid; grid-template-columns: 1fr minmax(320px, 440px) 1fr; padding: 24px; gap: 24px; }
-    .app { grid-column: 2; backdrop-filter: blur(6px); background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); border-radius: 20px; box-shadow: var(--shadow); overflow: clip; position: relative; z-index: 1; }
+    /* LAYOUT: make main app ~2/4 of the screen width */
+    .wrap { display: flex; justify-content: center; padding: 24px; }
+    .app {
+      width: 50vw;              /* 2/4 of the screen */
+      max-width: 960px;         /* don't get too wide on ultrawide */
+      min-width: 640px;         /* keep enough room for board + sidebar */
+      backdrop-filter: blur(6px);
+      background: rgba(255,255,255,.04);
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: 20px;
+      box-shadow: var(--shadow);
+      overflow: clip;
+      position: relative; z-index: 1;
+    }
+    @media (max-width: 760px) {
+      .app { width: 95vw; min-width: 0; }
+    }
 
     header { display: flex; align-items: center; justify-content: space-between; padding: 16px 18px; border-bottom: 1px solid rgba(255,255,255,.08); background: linear-gradient(180deg, rgba(255,255,255,.06), transparent); }
     .title { display:flex; align-items:center; gap:12px; letter-spacing:.3px; }
@@ -280,7 +295,6 @@
       ctx.fillStyle = color;
       ctx.globalAlpha = ghost ? 0.25 : 1;
       const r = 6; // rounded
-      // FIX: Path2D doesn't have .fill(); use ctx.fill(path)
       const basePath = roundRect(ctx, px+1, py+1, cellPx-2, cellPx-2, r);
       ctx.fill(basePath);
       // glossy highlight
