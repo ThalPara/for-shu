@@ -98,8 +98,8 @@ function showToast(msg, ms = 1200) {
 
 /* -------------------- TETRIS -------------------- */
 function Tetris(){
-  const canvasRef = useRef<HTMLCanvasElement|null>(null);
-  const nextRef = useRef<HTMLDivElement|null>(null);
+  const canvasRef = useRef(null);
+  const nextRef = useRef(null);
   const [soundOn, setSoundOn] = useState(true);
   const [playing, setPlaying] = useState(false);
   const [score, setScore] = useState(0);
@@ -122,14 +122,14 @@ function Tetris(){
   }),[]);
 
   const TYPES = useMemo(() => Object.keys(SHAPES), [SHAPES]);
-  const ctxRef = useRef<CanvasRenderingContext2D|null>(null);
-  const boardRef = useRef<string[][]>(emptyBoard());
+  const ctxRef = useRef(null);
+  const boardRef = useRef(emptyBoard());
   const bagRef = useRef<string[]>([]);
   const pieceRef = useRef<any>(null);
   const nextPieceRef = useRef<any>(null);
   const lastDropRef = useRef(0);
   const dropIntervalRef = useRef(800);
-  const audioCtxRef = useRef<AudioContext|null>(null);
+  const audioCtxRef = useRef(null);
 
   function emptyBoard(){ return Array.from({length: ROWS}, ()=>Array(COLS).fill(null)); }
   function nextType(){ if(bagRef.current.length===0) bagRef.current=[...TYPES].sort(()=>Math.random()-0.5); return bagRef.current.pop() as string; }
