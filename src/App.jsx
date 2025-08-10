@@ -1,18 +1,19 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 
 /**
- * Ohana Arcade – Single‑file React app (Responsive, Build‑clean)
- * - Self‑contained: no external imports/files.
- * - Games: Tetris (Lilo & Stitch quotes) + Sudoku (validator, hint, keyboard, self‑tests).
- * - Mobile‑friendly: responsive layout, scalable canvas, touch controls, square Sudoku cells.
- * - Bug fixes: stable keyboard listeners, best‑score update, null guards, Path2D fill usage.
+ * Ohana Arcade – Single‑file React App
+ * Games: Tetris (Lilo & Stitch quotes) + Sudoku
+ * - Responsive layout (2/3 width on desktop, single column on mobile)
+ * - Mobile Tetris touch controls
+ * - Path2D fill fix for rounded cells
+ * - Self‑tests for both games
  */
 
 export default function OhanaArcade() {
   const [game, setGame] = useState('tetris'); // 'tetris' | 'sudoku'
   return (
     <div className="min-h-screen text-[#e8eeff]" style={{
-      background: 'radial-gradient(1200px 800px at 10% 10%, #6fa8dc, transparent), radial-gradient(900px 600px at 90% 0%, #311a5a, transparent), linear-gradient(160deg, #3d85c6, #4f5ca7)'
+      background: 'radial-gradient(1200px 800px at 10% 10%, #1b2550, transparent), radial-gradient(900px 600px at 90% 0%, #311a5a, transparent), linear-gradient(160deg, #0b1020, #1a1f3b)'
     }}>
       <BaseStyles />
       <Stars />
@@ -21,17 +22,25 @@ export default function OhanaArcade() {
         <div className="container" style={{ width: '66.6667vw', maxWidth: 1280, minWidth: 640 }}>
           <header className="flex flex-wrap items-center justify-center gap-3 md:gap-4 border-b border-white/10 pb-3 mb-4">
             <h1 className="text-xl md:text-2xl font-bold m-0">Ohana Arcade</h1>
-            <nav className="flex gap-2 md:gap-3">
+            <nav className="seg" role="tablist" aria-label="Choose game">
               <button
+                role="tab"
+                aria-selected={game === 'tetris'}
+                className={`seg-btn ${game === 'tetris' ? 'is-active' : ''}`}
                 onClick={() => setGame('tetris')}
-                className={`px-4 py-2 font-bold rounded-full ${game === 'tetris' ? 'bg-gradient-to-r from-[#6c9cf1] to-[#8a5cff] text-[#081225]' : 'bg-[#101737] border border-white/20'}`}
-                aria-pressed={game === 'tetris'}
-              >Tetris</button>
+              >
+                <span className="seg-ico" aria-hidden>🎮</span>
+                <span className="seg-label">Tetris</span>
+              </button>
               <button
+                role="tab"
+                aria-selected={game === 'sudoku'}
+                className={`seg-btn ${game === 'sudoku' ? 'is-active' : ''}`}
                 onClick={() => setGame('sudoku')}
-                className={`px-4 py-2 font-bold rounded-full ${game === 'sudoku' ? 'bg-gradient-to-r from-[#6c9cf1] to-[#8a5cff] text-[#081225]' : 'bg-[#101737] border border-white/20'}`}
-                aria-pressed={game === 'sudoku'}
-              >Sudoku</button>
+              >
+                <span className="seg-ico" aria-hidden>🧩</span>
+                <span className="seg-label">Sudoku</span>
+              </button>
             </nav>
           </header>
 
@@ -64,10 +73,19 @@ function BaseStyles(){
       .two-col{display:grid;grid-template-columns:1fr 280px;gap:18px;padding:18px}
       .mobile-pad{display:grid;grid-template-columns:repeat(3, minmax(56px, 1fr));grid-auto-rows:56px;gap:10px;justify-content:center;width:100%}
       .mobile-pad .btn{border-radius:16px}
+      /* --- Fancy segmented tabs --- */
+      .seg{display:inline-flex;align-items:center;gap:6px;padding:6px;background:rgba(8,14,34,.35);border:1px solid rgba(255,255,255,.12);border-radius:999px;box-shadow:0 6px 20px rgba(0,0,0,.25)}
+      .seg-btn{position:relative;display:inline-flex;align-items:center;gap:8px;padding:10px 14px;border:none;border-radius:999px;font-weight:800;letter-spacing:.2px;cursor:pointer;color:#e8eeff;background:linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02));transition:transform .08s ease, box-shadow .2s ease, background .2s ease}
+      .seg-btn .seg-ico{font-size:1.1em;line-height:1}
+      .seg-btn.is-active{color:#081225;background:linear-gradient(90deg,#6c9cf1,#8a5cff);box-shadow:0 6px 18px rgba(138,92,255,.35)}
+      .seg-btn:focus-visible{outline:none;box-shadow:0 0 0 2px #0af5, 0 0 0 4px rgba(138,92,255,.55)}
+      .seg-btn:active{transform:translateY(1px)}
       @media (max-width: 760px){
         .container{ width:95vw !important; min-width:0 !important; }
         .two-col{ grid-template-columns: 1fr; padding: 12px; gap: 12px; }
         h1{ font-size: 1.125rem !important; }
+        .seg{width:100%;justify-content:space-between}
+        .seg-btn{flex:1;justify-content:center}
       }
     `}</style>
   );
@@ -92,7 +110,8 @@ function Toast(){
 }
 function showToast(msg, ms=1200){
   const el = document.getElementById('toast'); if(!el) return;
-  // @ts-ignore store timeout id on element
+  // store timeout id on element
+  // @ts-ignore
   const old = el._t; if(old) clearTimeout(old);
   el.textContent=msg; el.classList.add('show');
   // @ts-ignore
