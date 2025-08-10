@@ -224,7 +224,12 @@ function Tetris(){
     return ()=>{ cancelAnimationFrame(raf); window.removeEventListener('resize', resize); };
   },[playing]);
 
-  useEffect(()=>{ const kb=(e:KeyboardEvent)=>{ if((e as any).repeat) return; if(['ArrowLeft','ArrowRight','ArrowDown','ArrowUp','Space','KeyP','KeyR'].includes(e.code)) e.preventDefault(); switch(e.code){ case 'ArrowLeft': if(!collides(pieceRef.current,-1,0)){ pieceRef.current.x-=1; draw(); } break; case 'ArrowRight': if(!collides(pieceRef.current,1,0)){ pieceRef.current.x+=1; draw(); } break; case 'ArrowDown': softDrop(); break; case 'ArrowUp': { const r=rotate(pieceRef.current.shape); if(!collides(pieceRef.current,0,0,r)){ pieceRef.current.shape=r; draw(); break;} if(!collides(pieceRef.current,-1,0,r)){ pieceRef.current.x-=1; pieceRef.current.shape=r; draw(); break;} if(!collides(pieceRef.current,1,0,r)){ pieceRef.current.x+=1; pieceRef.current.shape=r; draw(); break;} break;} case 'Space': hardDrop(); break; case 'KeyP': setPlaying(p=>{ showToast(p?'Paused':'Resumed'); return !p;}); break; case 'KeyR': restart(); break; }}; window.addEventListener('keydown', kb as any); return ()=>window.removeEventListener('keydown', kb as any); });
+  useEffect(()=>{
+      const kb=(e)=>{
+          if(e.repeat) return;
+          if(['ArrowLeft','ArrowRight','ArrowDown','ArrowUp','Space','KeyP','KeyR'].includes(e.code)) e.preventDefault(); switch(e.code){ case 'ArrowLeft': if(!collides(pieceRef.current,-1,0)){ pieceRef.current.x-=1; draw(); } break; case 'ArrowRight': if(!collides(pieceRef.current,1,0)){ pieceRef.current.x+=1; draw(); } break; case 'ArrowDown': softDrop(); break; case 'ArrowUp': { const r=rotate(pieceRef.current.shape); if(!collides(pieceRef.current,0,0,r)){ pieceRef.current.shape=r; draw(); break;} if(!collides(pieceRef.current,-1,0,r)){ pieceRef.current.x-=1; pieceRef.current.shape=r; draw(); break;} if(!collides(pieceRef.current,1,0,r)){ pieceRef.current.x+=1; pieceRef.current.shape=r; draw(); break;} break;} case 'Space': hardDrop(); break; case 'KeyP': setPlaying(p=>{ showToast(p?'Paused':'Resumed'); return !p;}); break; case 'KeyR': restart(); break; }}; window.addEventListener('keydown', kb as any);
+          return ()=>window.removeEventListener('keydown', kb); }
+          [playing]);
 
   function restart(){ boardRef.current=emptyBoard(); bagRef.current=[]; pieceRef.current=createPiece(nextType()); nextPieceRef.current=createPiece(nextType()); setScore(0); setLevel(1); setLines(0); dropIntervalRef.current=800; lastDropRef.current=0; renderNext(); draw(); setPlaying(true); showToast('New Game – Good luck!'); }
 
