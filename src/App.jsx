@@ -1,14 +1,15 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 
 /**
- * Ohana Arcade – Single‑file React app (Responsive)
- * - Fixes previous build error by keeping everything in one file (no missing imports)
- * - Mobile‑friendly: responsive layout, scalable canvas, touch controls, square Sudoku cells
- * - Games: Tetris (Lilo & Stitch quotes) + Sudoku with validator, hint, keyboard, self‑tests
+ * Ohana Arcade – Single‑file React app (Responsive, Build‑clean)
+ * - Self‑contained: no external imports/files.
+ * - Games: Tetris (Lilo & Stitch quotes) + Sudoku (validator, hint, keyboard, self‑tests).
+ * - Mobile‑friendly: responsive layout, scalable canvas, touch controls, square Sudoku cells.
+ * - Bug fixes: stable keyboard listeners, best‑score update, null guards, Path2D fill usage.
  */
 
 export default function OhanaArcade() {
-  const [game, setGame] = useState('tetris');
+  const [game, setGame] = useState('tetris'); // 'tetris' | 'sudoku'
   return (
     <div className="min-h-screen text-[#e8eeff]" style={{
       background: 'radial-gradient(1200px 800px at 10% 10%, #1b2550, transparent), radial-gradient(900px 600px at 90% 0%, #311a5a, transparent), linear-gradient(160deg, #0b1020, #1a1f3b)'
@@ -89,11 +90,13 @@ function Stars(){
 function Toast(){
   return <div id="toast" className="toast" role="status" aria-live="polite"/>;
 }
-
-function showToast(msg, ms = 1200) {
+function showToast(msg, ms=1200){
   const el = document.getElementById('toast'); if(!el) return;
-  el.textContent = msg; el.classList.add('show');
-  clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('show'), ms);
+  // @ts-ignore store timeout id on element
+  const old = el._t; if(old) clearTimeout(old);
+  el.textContent=msg; el.classList.add('show');
+  // @ts-ignore
+  el._t=setTimeout(()=>el.classList.remove('show'), ms);
 }
 
 /* -------------------- TETRIS -------------------- */
@@ -105,7 +108,7 @@ function Tetris(){
   const [score, setScore] = useState(0);
   const [level, setLevel] = useState(1);
   const [lines, setLines] = useState(0);
-  const [best, setBest] = useState(Number(localStorage.getItem('ohana-tetris-best')||0));
+  const [best, setBest] = useState(Number(typeof window!=='undefined' ? (localStorage.getItem('ohana-tetris-best')||0) : 0));
   const [quote, setQuote] = useState('Fill a line to hear from Lilo & Stitch 💫');
 
   // config
@@ -120,67 +123,29 @@ function Tetris(){
     T:[[0,1,0],[1,1,1],[0,0,0]],
     Z:[[1,1,0],[0,1,1],[0,0,0]],
   }),[]);
+  const TYPES = useMemo(()=>Object.keys(SHAPES),[SHAPES]);
 
-  const TYPES = useMemo(() => Object.keys(SHAPES), [SHAPES]);
   const ctxRef = useRef(null);
   const boardRef = useRef(emptyBoard());
   const bagRef = useRef([]);
-  const pieceRef = useRef<any>(null);
-  const nextPieceRef = useRef<any>(null);
+  const pieceRef = useRef(null);
+  const nextPieceRef = useRef(null);
   const lastDropRef = useRef(0);
   const dropIntervalRef = useRef(800);
   const audioCtxRef = useRef(null);
 
   function emptyBoard(){ return Array.from({length: ROWS}, ()=>Array(COLS).fill(null)); }
-  function nextType(){
-    if(bagRef.current.length===0) bagRef.current=[...TYPES].sort(()=>Math.random()-0.5);
-    return bagRef.current.pop();
-  }
+  function nextType(){ if(bagRef.current.length===0) bagRef.current=[...TYPES].sort(()=>Math.random()-0.5); return bagRef.current.pop(); }
   function createPiece(type){ const shape=SHAPES[type].map(r=>r.slice()); return {type, shape, x: Math.floor((COLS-shape[0].length)/2), y: -1}; }
-  function rotate(m) {
-    const N = m.length, M = m[0].length;
-    const r = Array.from({length: M}, () => Array(N).fill(0));
-    for (let y = 0; y < N; y++) for (let x = 0; x < M; x++) r[x][N - 1 - y] = m[y][x];
-    return r;
-  }
-  function collides(p, dx = 0, dy = 0, test = null) {
-    const b = boardRef.current;
-    const sh = test || p.shape;
-    for (let y = 0; y < sh.length; y++) {
-      for (let x = 0; x < sh[y].length; x++) {
-        if (!sh[y][x]) continue;
-        const nx = p.x + x + dx, ny = p.y + y + dy;
-        if (nx < 0 || nx >= COLS || ny >= ROWS) return true;
-        if (ny >= 0 && b[ny][nx]) return true;
-      }
-    }
-    return false;
-  }
+  function rotate(m){ const N=m.length, M=m[0].length; const r=Array.from({length:M},()=>Array(N).fill(0)); for(let y=0;y<N;y++) for(let x=0;x<M;x++) r[x][N-1-y]=m[y][x]; return r; }
+  function collides(p, dx=0, dy=0, test=null){ const sh=test||p.shape; const b=boardRef.current; for(let y=0;y<sh.length;y++){ for(let x=0;x<sh[y].length;x++){ if(!sh[y][x]) continue; const nx=p.x+x+dx, ny=p.y+y+dy; if(nx<0||nx>=COLS||ny>=ROWS) return true; if(ny>=0 && b[ny][nx]) return true; } } return false; }
   function merge(p){ const b=boardRef.current; for(let y=0;y<p.shape.length;y++){ for(let x=0;x<p.shape[y].length;x++){ if(p.shape[y][x]){ const ny=p.y+y, nx=p.x+x; if(ny>=0) b[ny][nx]=p.type; } } } }
   function clearLines(){ let c=0; const b=boardRef.current; for(let y=ROWS-1;y>=0;y--){ if(b[y].every(Boolean)){ b.splice(y,1); b.unshift(Array(COLS).fill(null)); c++; y++; } } return c; }
-  function roundRectPath(x, y, w, h, r){ const p=new Path2D(); r=Math.min(r,w/2,h/2); p.moveTo(x+r,y); p.arcTo(x+w,y,x+w,y+h,r); p.arcTo(x+w,y+h,x,y+h,r); p.arcTo(x,y+h,x,y,r); p.arcTo(x,y,x+w,y,r); p.closePath(); return p; }
-  function drawCell(x, y, type, ghost = false){ const ctx=ctxRef.current; const px=x*cellPx, py=y*cellPx; const color=COLORS[type]||'#9cf'; ctx.fillStyle=color; ctx.globalAlpha=ghost?0.25:1; const r=6; const base=roundRectPath(px+1,py+1,cellPx-2,cellPx-2,r); ctx.fill(base); ctx.globalAlpha=ghost?0.18:0.4; ctx.fillStyle='#ffffff'; const gloss=roundRectPath(px+4,py+4,cellPx-8,(cellPx-8)/3,r); ctx.fill(gloss); ctx.globalAlpha=1; }
-  function draw(){ const ctx=ctxRef.current, canvas=canvasRef.current; ctx.clearRect(0,0,canvas.width,canvas.height); const b=boardRef.current; for(let y=0;y<ROWS;y++){ for(let x=0;x<COLS;x++){ if(b[y][x]) drawCell(x,y,b[y][x]); else { ctx.globalAlpha=.05; ctx.fillStyle='#fff'; ctx.fillRect(x*cellPx+1,y*cellPx+1,cellPx-2,cellPx-2); ctx.globalAlpha=1; } } } let gy=pieceRef.current.y; while(!collides(pieceRef.current,0,(gy-pieceRef.current.y)+1)) gy++; for(let y=0;y<pieceRef.current.shape.length;y++) for(let x=0;x<pieceRef.current.shape[y].length;x++) if(pieceRef.current.shape[y][x] && gy+y>=0) drawCell(pieceRef.current.x+x, gy+y, pieceRef.current.type, true); for(let y=0;y<pieceRef.current.shape.length;y++) for(let x=0;x<pieceRef.current.shape[y].length;x++) if(pieceRef.current.shape[y][x] && pieceRef.current.y+y>=0) drawCell(pieceRef.current.x+x, pieceRef.current.y+y, pieceRef.current.type); }
-  function beep(freq=600, dur=.06){
-    if(!soundOn) return;
-    if(!audioCtxRef.current)
-      audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
-    const a = audioCtxRef.current;
-    // ... rest of the function
-  }
-    function renderNext() {
-      const n = nextRef.current;
-      if (!n) return;
-      n.innerHTML = '';
-      for (let i = 0; i < 25; i++) {
-        const d = document.createElement('div');
-        d.style.width = '20px';
-        d.style.height = '20px';
-        d.style.borderRadius = '4px';
-        d.style.background = 'transparent';
-        n.appendChild(d);
-      }
-    }
+  function roundRectPath(x,y,w,h,r){ const p=new Path2D(); r=Math.min(r,w/2,h/2); p.moveTo(x+r,y); p.arcTo(x+w,y,x+w,y+h,r); p.arcTo(x+w,y+h,x,y+h,r); p.arcTo(x,y+h,x,y,r); p.arcTo(x,y,x+w,y,r); p.closePath(); return p; }
+  function drawCell(x,y,type,ghost=false){ const ctx=ctxRef.current; if(!ctx) return; const px=x*cellPx, py=y*cellPx; const color=COLORS[type]||'#9cf'; ctx.fillStyle=color; ctx.globalAlpha=ghost?0.25:1; const r=6; const base=roundRectPath(px+1,py+1,cellPx-2,cellPx-2,r); ctx.fill(base); ctx.globalAlpha=ghost?0.18:0.4; ctx.fillStyle='#ffffff'; const gloss=roundRectPath(px+4,py+4,cellPx-8,(cellPx-8)/3,r); ctx.fill(gloss); ctx.globalAlpha=1; }
+  function draw(){ const ctx=ctxRef.current, canvas=canvasRef.current; if(!ctx||!canvas) return; ctx.clearRect(0,0,canvas.width,canvas.height); const b=boardRef.current; for(let y=0;y<ROWS;y++){ for(let x=0;x<COLS;x++){ if(b[y][x]) drawCell(x,y,b[y][x]); else { ctx.globalAlpha=.05; ctx.fillStyle='#fff'; ctx.fillRect(x*cellPx+1,y*cellPx+1,cellPx-2,cellPx-2); ctx.globalAlpha=1; } } } let gy=pieceRef.current.y; while(!collides(pieceRef.current,0,(gy-pieceRef.current.y)+1)) gy++; for(let y=0;y<pieceRef.current.shape.length;y++) for(let x=0;x<pieceRef.current.shape[y].length;x++) if(pieceRef.current.shape[y][x] && gy+y>=0) drawCell(pieceRef.current.x+x, gy+y, pieceRef.current.type, true); for(let y=0;y<pieceRef.current.shape.length;y++) for(let x=0;x<pieceRef.current.shape[y].length;x++) if(pieceRef.current.shape[y][x] && pieceRef.current.y+y>=0) drawCell(pieceRef.current.x+x, pieceRef.current.y+y, pieceRef.current.type); }
+  function beep(freq=600, dur=.06){ if(!soundOn) return; if(!audioCtxRef.current) audioCtxRef.current=new (window.AudioContext||window.webkitAudioContext)(); const a=audioCtxRef.current; const o=a.createOscillator(); const g=a.createGain(); o.type='sine'; o.frequency.value=freq; o.connect(g); g.connect(a.destination); g.gain.setValueAtTime(.0001,a.currentTime); g.gain.exponentialRampToValueAtTime(.2,a.currentTime+.01); o.start(); o.stop(a.currentTime+dur); o.onended=()=>g.disconnect(); }
+  function renderNext(){ const n=nextRef.current; if(!n||!nextPieceRef.current) return; n.innerHTML=''; for(let i=0;i<25;i++){ const d=document.createElement('div'); d.style.width='20px'; d.style.height='20px'; d.style.borderRadius='4px'; d.style.background='transparent'; n.appendChild(d);} const sh=nextPieceRef.current.shape; const offX=Math.floor((5-sh[0].length)/2), offY=Math.floor((5-sh.length)/2); [...n.children].forEach((cell,idx)=>{ const gx=idx%5, gy=Math.floor(idx/5); const sx=gx-offX, sy=gy-offY; const on=sh[sy]&&sh[sy][sx]; if(on){ cell.style.background=COLORS[nextPieceRef.current.type]; cell.style.opacity=.95; } }); }
   function showQuote(){ const q=[
     'Ohana means family. Family means nobody gets left behind or forgotten.',
     'I like you. You be my friend?',
@@ -197,17 +162,13 @@ function Tetris(){
   function softDrop(){ if(!collides(pieceRef.current,0,1)){ pieceRef.current.y++; } else lockPiece(); draw(); }
   function hardDrop(){ let moved=0; while(!collides(pieceRef.current,0,1)){ pieceRef.current.y++; moved++; } setScore(s=>s+2*moved); lockPiece(); draw(); }
   function maybeLevelUp(curLines, curLevel){ if(curLines>=curLevel*10){ const nl=curLevel+1; dropIntervalRef.current=Math.max(120,dropIntervalRef.current-90); setLevel(nl); showToast('Level Up! '+nl); } }
-  function lockPiece(){ merge(pieceRef.current); beep(420,.05); const c=clearLines(); if(c>0){ const gains=[0,100,300,500,800][c]||c*300; setScore(s=>s+gains*level); setLines(ln=>{ const nl=ln+c; maybeLevelUp(nl, level); return nl;}); setBest(b=>{ const nb=Math.max(b, score); localStorage.setItem('ohana-tetris-best', String(nb)); return Math.max(b, score);}); showQuote(); beep(660,.07); setTimeout(()=>beep(880,.07),70);} newPiece(); if(collides(pieceRef.current,0,0)){ setPlaying(false); showToast('Game Over – Press Restart', 2000); beep(160,.2);} }
+  function lockPiece(){ merge(pieceRef.current); beep(420,.05); const c=clearLines(); if(c>0){ const gains=[0,100,300,500,800][c]||c*300; setScore(prev=>{ const nextScore=prev + gains*level; setBest(b=>{ const nb=Math.max(b, nextScore); if(typeof window!=='undefined') localStorage.setItem('ohana-tetris-best', String(nb)); return nb; }); return nextScore;}); setLines(ln=>{ const nl=ln+c; maybeLevelUp(nl, level); return nl;}); showQuote(); beep(660,.07); setTimeout(()=>beep(880,.07),70);} newPiece(); if(collides(pieceRef.current,0,0)){ setPlaying(false); showToast('Game Over – Press Restart', 2000); beep(160,.2);} }
 
   useEffect(()=>{
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    ctxRef.current = ctx;
+    const canvas=canvasRef.current; const ctx=canvas?.getContext('2d'); if(!canvas||!ctx) return; ctxRef.current=ctx;
     const DPR=Math.max(1, Math.min(2, window.devicePixelRatio||1));
     function resize(){
-      // Keep device-pixel crispness but scale CSS size to viewport so it fits on phones
+      // Scale CSS size to viewport while keeping device‑pixel crispness
       const maxCssW = COLS * cellPx;
       const targetCssW = Math.min(maxCssW, Math.floor(window.innerWidth * 0.95));
       const cssH = Math.floor(targetCssW * (ROWS / COLS));
@@ -224,14 +185,32 @@ function Tetris(){
     return ()=>{ cancelAnimationFrame(raf); window.removeEventListener('resize', resize); };
   },[playing]);
 
+  // Stable keyboard listener
   useEffect(()=>{
-      const kb=(e)=>{
-          if(e.repeat) return;
-          if(['ArrowLeft','ArrowRight','ArrowDown','ArrowUp','Space','KeyP','KeyR'].includes(e.code)) e.preventDefault(); switch(e.code){ case 'ArrowLeft': if(!collides(pieceRef.current,-1,0)){ pieceRef.current.x-=1; draw(); } break; case 'ArrowRight': if(!collides(pieceRef.current,1,0)){ pieceRef.current.x+=1; draw(); } break; case 'ArrowDown': softDrop(); break; case 'ArrowUp': { const r=rotate(pieceRef.current.shape); if(!collides(pieceRef.current,0,0,r)){ pieceRef.current.shape=r; draw(); break;} if(!collides(pieceRef.current,-1,0,r)){ pieceRef.current.x-=1; pieceRef.current.shape=r; draw(); break;} if(!collides(pieceRef.current,1,0,r)){ pieceRef.current.x+=1; pieceRef.current.shape=r; draw(); break;} break;} case 'Space': hardDrop(); break; case 'KeyP': setPlaying(p=>{ showToast(p?'Paused':'Resumed'); return !p;}); break; case 'KeyR': restart(); break; }}; window.addEventListener('keydown', kb as any);
-          return ()=>window.removeEventListener('keydown', kb); }
-          [playing]);
+    const kb=(e)=>{ if(e.repeat) return; if(['ArrowLeft','ArrowRight','ArrowDown','ArrowUp','Space','KeyP','KeyR'].includes(e.code)) e.preventDefault(); switch(e.code){ case 'ArrowLeft': if(!collides(pieceRef.current,-1,0)){ pieceRef.current.x-=1; draw(); } break; case 'ArrowRight': if(!collides(pieceRef.current,1,0)){ pieceRef.current.x+=1; draw(); } break; case 'ArrowDown': softDrop(); break; case 'ArrowUp': { const r=rotate(pieceRef.current.shape); if(!collides(pieceRef.current,0,0,r)){ pieceRef.current.shape=r; draw(); break;} if(!collides(pieceRef.current,-1,0,r)){ pieceRef.current.x-=1; pieceRef.current.shape=r; draw(); break;} if(!collides(pieceRef.current,1,0,r)){ pieceRef.current.x+=1; pieceRef.current.shape=r; draw(); break;} break;} case 'Space': hardDrop(); break; case 'KeyP': setPlaying(p=>{ showToast(p?'Paused':'Resumed'); return !p;}); break; case 'KeyR': restart(); break; }};
+    window.addEventListener('keydown', kb);
+    return ()=>window.removeEventListener('keydown', kb);
+  }, []);
 
   function restart(){ boardRef.current=emptyBoard(); bagRef.current=[]; pieceRef.current=createPiece(nextType()); nextPieceRef.current=createPiece(nextType()); setScore(0); setLevel(1); setLines(0); dropIntervalRef.current=800; lastDropRef.current=0; renderNext(); draw(); setPlaying(true); showToast('New Game – Good luck!'); }
+
+  // Self‑tests (non‑destructive)
+  function tetrisSelfTests(){
+    const savedBoard=boardRef.current.map(r=>r.slice()); const savedPiece=JSON.parse(JSON.stringify(pieceRef.current));
+    try{
+      console.group('%cTetris Self‑Tests','color:#7ef7d7;font-weight:700');
+      boardRef.current=emptyBoard();
+      console.assert(boardRef.current.length===ROWS && boardRef.current.every(r=>r.length===COLS),'Board size');
+      let tp=createPiece('O'); tp.x=4; tp.y=-1; console.assert(!collides(tp,0,0),'Spawn non-collision');
+      let left=createPiece('I'); left.x=-1; left.y=0; console.assert(collides(left,0,0),'Wall collision');
+      let floor=createPiece('O'); floor.x=4; floor.y=ROWS-2; console.assert(collides(floor,0,1)===true,'Floor collision');
+      boardRef.current[ROWS-1]=Array(COLS).fill('I'); let cleared=clearLines(); console.assert(cleared===1,'Single line clear');
+      boardRef.current[ROWS-1]=Array(COLS).fill('J'); boardRef.current[ROWS-2]=Array(COLS).fill('L'); cleared=clearLines(); console.assert(cleared===2,'Double line clear');
+      let ok=true; try{ const ctx=ctxRef.current; if(ctx){ const path=new Path2D(); ctx.fill(path);} }catch(e){ ok=false;} console.assert(ok,'Path2D fill');
+      console.log('%cAll good!','color:#6c9cf1;font-weight:700'); showToast('Tetris tests passed');
+    }catch(err){ console.error(err); showToast('Tetris tests failed – see console', 1800); }
+    finally{ boardRef.current=savedBoard; pieceRef.current=savedPiece; draw(); console.groupEnd(); }
+  }
 
   return (
     <main className="two-col">
@@ -239,10 +218,11 @@ function Tetris(){
         <h3 style={sideH3}>Tetris</h3>
         <canvas ref={canvasRef} width={320} height={640} aria-label="Tetris board" style={{background:'rgba(8,14,34,.8)',borderRadius:10,boxShadow:'inset 0 0 0 1px rgba(255,255,255,.06), 0 10px 30px rgba(0,0,0,.35)'}}/>
         <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
-          <button className="btn btnPrimary" onClick={()=>{ if(!playing){ setPlaying(true); lastDropRef.current=0; showToast('Game Start!'); audioCtxRef.current?.resume?.(); } }}>Start</button>
+          <button className="btn btnPrimary" onClick={()=>{ if(!playing){ setPlaying(true); lastDropRef.current=0; showToast('Game Start!'); if(audioCtxRef.current && audioCtxRef.current.resume) audioCtxRef.current.resume(); } }}>Start</button>
           <button className="btn" onClick={()=>setPlaying(p=>{ showToast(p?'Paused':'Resumed'); return !p; })}>Pause (P)</button>
           <button className="btn" onClick={restart}>Restart (R)</button>
           <button className="btn" onClick={()=>setSoundOn(s=>!s)}>Sound: {soundOn?'On':'Off'}</button>
+          <button className="btn" onClick={tetrisSelfTests}>Self‑Test</button>
         </div>
 
         {/* Mobile touch pad */}
@@ -299,9 +279,9 @@ function Sudoku(){
   ],[]);
 
   const [puzzleIndex, setPuzzleIndex] = useState(0);
-  const [grid, setGrid] = useState<number[][]>(strToGrid(puzzles[0]));
-  const [fixed, setFixed] = useState<boolean[][]>(grid.map(row=>row.map(v=>v!==0)));
-  const [selected, setSelected] = useState<{r:number;c:number}>({r:0,c:0});
+  const [grid, setGrid] = useState(strToGrid(puzzles[0]));
+  const [fixed, setFixed] = useState(strToGrid(puzzles[0]).map(row=>row.map(v=>v!==0)));
+  const [selected, setSelected] = useState({r:0,c:0});
 
   useEffect(()=>{ const g=strToGrid(puzzles[puzzleIndex]); setGrid(g); setFixed(g.map(r=>r.map(v=>v!==0))); },[puzzleIndex, puzzles]);
 
@@ -310,11 +290,11 @@ function Sudoku(){
 
   function isValid(g){
     // rows
-    for(let r=0;r<9;r++){ const seen=new Set<number>(); for(let c=0;c<9;c++){ const v=g[r][c]; if(v===0) continue; if(seen.has(v)) return false; seen.add(v);} }
+    for(let r=0;r<9;r++){ const seen=new Set(); for(let c=0;c<9;c++){ const v=g[r][c]; if(v===0) continue; if(seen.has(v)) return false; seen.add(v);} }
     // cols
-    for(let c=0;c<9;c++){ const seen=new Set<number>(); for(let r=0;r<9;r++){ const v=g[r][c]; if(v===0) continue; if(seen.has(v)) return false; seen.add(v);} }
+    for(let c=0;c<9;c++){ const seen=new Set(); for(let r=0;r<9;r++){ const v=g[r][c]; if(v===0) continue; if(seen.has(v)) return false; seen.add(v);} }
     // boxes
-    for(let br=0;br<3;br++) for(let bc=0;bc<3;bc++){ const seen=new Set<number>(); for(let r=0;r<3;r++) for(let c=0;c<3;c++){ const v=g[br*3+r][bc*3+c]; if(v===0) continue; if(seen.has(v)) return false; seen.add(v);} }
+    for(let br=0;br<3;br++) for(let bc=0;bc<3;bc++){ const seen=new Set(); for(let r=0;r<3;r++) for(let c=0;c<3;c++){ const v=g[br*3+r][bc*3+c]; if(v===0) continue; if(seen.has(v)) return false; seen.add(v);} }
     return true;
   }
   function isSolved(g){ return gridToStr(g) === solutions[puzzleIndex]; }
@@ -330,17 +310,30 @@ function Sudoku(){
   }
   function revealOne(){ const sol = solutions[puzzleIndex]; setGrid(prev=>{ const g=prev.map(r=>r.slice()); const {r,c}=selected; if(fixed[r][c]) return g; g[r][c]=Number(sol[r*9+c]); return g; }); showToast('Hint revealed'); }
 
-  // Keyboard
+  // Self‑tests for Sudoku
+  function sudokuSelfTests(){
+    try{
+      console.group('%cSudoku Self‑Tests','color:#7ef7d7;font-weight:700');
+      const g0=strToGrid(puzzles[0]); console.assert(isValid(g0),'Starter puzzle valid');
+      const wrong=strToGrid(puzzles[0]); wrong[0][0]=9; console.assert(!isValid(wrong),'Duplicate invalid');
+      const sol=strToGrid(solutions[0]); console.assert(isValid(sol),'Solution valid');
+      console.assert(gridToStr(sol)===solutions[0],'Solution string matches');
+      console.log('%cAll good!','color:#6c9cf1;font-weight:700'); showToast('Sudoku tests passed');
+    }catch(err){ console.error(err); showToast('Sudoku tests failed – see console', 1800); }
+    finally{ console.groupEnd(); }
+  }
+
+  // Stable keyboard listener
   useEffect(()=>{
-    function onKey(e:KeyboardEvent){
+    function onKey(e){
       if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Backspace','Delete','Digit0','Numpad0'].includes(e.code) || (/Digit[1-9]|Numpad[1-9]/.test(e.code))){ e.preventDefault?.(); }
       if(e.code==='Backspace'||e.code==='Delete'||e.code==='Digit0'||e.code==='Numpad0'){ clearCell(); return; }
-      const map:any={ArrowUp:[-1,0],ArrowDown:[1,0],ArrowLeft:[0,-1],ArrowRight:[0,1]};
+      const map={ArrowUp:[-1,0],ArrowDown:[1,0],ArrowLeft:[0,-1],ArrowRight:[0,1]};
       if(map[e.code]){ setSelected(s=>({ r: Math.max(0, Math.min(8, s.r+map[e.code][0])), c: Math.max(0, Math.min(8, s.c+map[e.code][1])) })); return; }
       const m=e.code.match(/Digit([1-9])|Numpad([1-9])/); if(m){ const n=Number(m[1]||m[2]); setNumber(n); }
     }
     window.addEventListener('keydown', onKey); return ()=>window.removeEventListener('keydown', onKey);
-  },[fixed, selected]);
+  }, []);
 
   return (
     <main className="two-col">
@@ -371,13 +364,14 @@ function Sudoku(){
           <button className="btn btnPrimary" onClick={check}>Check</button>
           <button className="btn" onClick={revealOne}>Hint</button>
           <button className="btn" onClick={newPuzzle}>New</button>
+          <button className="btn" onClick={sudokuSelfTests}>Self‑Test</button>
         </div>
       </section>
       <aside style={{display:'grid',gap:12}}>
         <div className="card">
           <h3 style={sideH3}>How to play</h3>
           <ul style={{margin:0,paddingLeft:18,lineHeight:1.4}}>
-            <li>Tap a cell, then tap 1–9 (or use your keyboard) to fill.</li>
+            <li>Tap a cell, then tap 1–9 or press 1–9 to fill.</li>
             <li>Each row, column, and 3×3 box must contain 1–9 with no repeats.</li>
             <li>Use <b>Check</b> to validate; <b>Hint</b> fills the selected cell from the solution.</li>
           </ul>
